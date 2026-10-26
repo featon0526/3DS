@@ -1,0 +1,3145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#050708" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/OrbitControls.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/geometries/RoundedBoxGeometry.js">
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js">
+<title>Insta360 Ace Pro 2 — 3D 结构拆解 / TEARDOWN</title>
+<style>
+  :root{
+    --bg:#050708;
+    --bg-deep:#020304;
+    --panel:rgba(10,14,16,.88);
+    --panel-solid:#0b1012;
+    --text:#e8f1f2;
+    --muted:#809096;
+    --muted-2:#556267;
+    --line:rgba(151,186,192,.14);
+    --line-strong:rgba(151,186,192,.28);
+    --cyan:#74f0ff;
+    --cyan-dim:rgba(116,240,255,.42);
+    --orange:#ff5c24;
+    --orange-soft:rgba(255,92,36,.12);
+    --green:#b6ff5f;
+    --font-display:"Bahnschrift SemiCondensed","Bahnschrift","DIN Alternate","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
+    --font-body:"Bahnschrift","Segoe UI Variable Text","Microsoft YaHei UI","Microsoft YaHei",sans-serif;
+    --font-mono:"Cascadia Mono","Consolas","SFMono-Regular","Microsoft YaHei UI",monospace;
+  }
+
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden}
+  body{
+    background:
+      radial-gradient(65% 62% at 50% 44%, rgba(25,62,70,.24) 0%, rgba(9,19,22,.12) 38%, transparent 72%),
+      radial-gradient(36% 44% at 83% 17%, rgba(255,92,36,.075) 0%, transparent 72%),
+      radial-gradient(40% 42% at 14% 82%, rgba(52,134,151,.06) 0%, transparent 76%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+    user-select:none;
+  }
+  button,input{font:inherit}
+  button{color:inherit}
+  svg{display:block}
+  ::selection{background:var(--orange);color:#080502}
+
+  #scene{
+    position:fixed;inset:0;width:100%;height:100%;
+    z-index:1;display:block;outline:none;
+    touch-action:none;
+    cursor:grab;
+  }
+  #scene.is-dragging{cursor:grabbing}
+  #scene.is-hovering{cursor:pointer}
+
+  /* ---------------- ambient overlays ---------------- */
+  .fx{position:fixed;inset:0;pointer-events:none}
+  .fx-grid{
+    z-index:2;
+    background-image:
+      linear-gradient(rgba(136,183,192,.045) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(136,183,192,.045) 1px,transparent 1px);
+    background-size:68px 68px;
+    -webkit-mask-image:radial-gradient(ellipse at 51% 48%,#000 6%,rgba(0,0,0,.35) 48%,transparent 78%);
+    mask-image:radial-gradient(ellipse at 51% 48%,#000 6%,rgba(0,0,0,.35) 48%,transparent 78%);
+    opacity:.42;
+  }
+  .fx-scan{
+    z-index:2;
+    background:repeating-linear-gradient(0deg,rgba(255,255,255,.024) 0 1px,transparent 1px 4px);
+    mix-blend-mode:soft-light;
+    opacity:.42;
+  }
+  .fx-vignette{
+    z-index:2;
+    background:
+      radial-gradient(ellipse at 50% 44%,transparent 30%,rgba(1,3,4,.19) 67%,rgba(1,3,4,.72) 100%),
+      linear-gradient(90deg,rgba(2,4,5,.42),transparent 18%,transparent 82%,rgba(2,4,5,.42));
+  }
+  .fx-grain{
+    z-index:2;opacity:.16;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 220 220' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.55'/%3E%3C/svg%3E");
+    background-size:180px 180px;
+  }
+
+  .corner-marks{position:fixed;inset:0;z-index:3;pointer-events:none}
+  .corner-marks span{position:absolute;width:18px;height:18px;border-color:rgba(152,193,201,.28);border-style:solid;border-width:0}
+  .corner-marks span:nth-child(1){left:14px;top:104px;border-left-width:1px;border-top-width:1px}
+  .corner-marks span:nth-child(2){right:14px;top:104px;border-right-width:1px;border-top-width:1px}
+  .corner-marks span:nth-child(3){left:14px;bottom:104px;border-left-width:1px;border-bottom-width:1px}
+  .corner-marks span:nth-child(4){right:14px;bottom:104px;border-right-width:1px;border-bottom-width:1px}
+
+  /* ---------------- header ---------------- */
+  .topbar{
+    position:fixed;left:0;right:0;top:0;z-index:14;
+    height:92px;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 30px;
+    background:linear-gradient(180deg,rgba(4,7,8,.92) 0%,rgba(4,7,8,.55) 68%,transparent 100%);
+  }
+  .topbar::after{
+    content:"";position:absolute;left:30px;right:30px;bottom:0;height:1px;
+    background:linear-gradient(90deg,transparent,var(--line-strong) 18%,var(--line) 62%,transparent);
+  }
+  .brand{display:flex;align-items:center;gap:14px;min-width:0}
+  .lens-mark{
+    width:42px;height:42px;flex:0 0 42px;border-radius:50%;
+    border:1px solid rgba(151,186,192,.34);
+    background:
+      radial-gradient(circle at 34% 28%,rgba(128,231,255,.36),transparent 24%),
+      radial-gradient(circle at 50% 55%,#0d1b20 0 18%,#071013 19% 39%,#141a1d 40% 66%,#050809 67%);
+    box-shadow:inset 0 0 16px rgba(0,0,0,.9),0 0 22px rgba(78,192,211,.06);
+    position:relative;
+  }
+  .lens-mark::before{
+    content:"";position:absolute;inset:8px;border-radius:50%;
+    border:1px solid rgba(116,240,255,.34);
+    box-shadow:inset 0 0 8px rgba(116,240,255,.10);
+  }
+  .lens-mark::after{
+    content:"";position:absolute;width:5px;height:5px;border-radius:50%;
+    right:3px;top:8px;background:var(--orange);
+    box-shadow:0 0 10px rgba(255,92,36,.95);
+  }
+  .brand-copy{min-width:0}
+  .overline{
+    color:var(--muted);font-family:var(--font-mono);font-size:8px;
+    letter-spacing:.22em;white-space:nowrap;margin-bottom:4px;
+  }
+  .product-line{display:flex;align-items:baseline;gap:9px;white-space:nowrap}
+  .product-line h1{
+    font-family:var(--font-display);font-size:29px;line-height:1;
+    font-weight:600;letter-spacing:.035em;
+  }
+  .product-line .slash{color:var(--orange);font-family:var(--font-mono);font-size:18px;font-weight:300}
+  .product-line .teardown{
+    color:var(--muted);font-family:var(--font-mono);font-size:9px;
+    letter-spacing:.2em;transform:translateY(-1px);
+  }
+
+  .mode-readout{
+    position:absolute;left:50%;top:29px;transform:translateX(-50%);
+    display:flex;align-items:center;gap:10px;
+    font-family:var(--font-mono);font-size:8px;letter-spacing:.18em;color:var(--muted);
+    padding:6px 10px;border:1px solid rgba(151,186,192,.12);
+    background:rgba(5,9,10,.45);backdrop-filter:blur(8px);
+  }
+  .mode-readout i{
+    width:5px;height:5px;border-radius:50%;background:var(--cyan);
+    box-shadow:0 0 9px var(--cyan);animation:statusPulse 2.8s ease-in-out infinite;
+  }
+  .mode-readout b{font-weight:400;color:var(--text)}
+  .mode-readout em{font-style:normal;color:var(--orange);font-size:7px;padding-left:9px;border-left:1px solid var(--line)}
+  .top-tools{display:flex;align-items:center;gap:14px}
+  .status-chip{
+    display:flex;align-items:center;gap:7px;
+    font-family:var(--font-mono);font-size:8px;letter-spacing:.16em;color:var(--muted);
+    border:1px solid var(--line);padding:7px 9px;background:rgba(8,12,13,.5);
+  }
+  .status-chip i{
+    width:4px;height:4px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 7px rgba(182,255,95,.7);
+  }
+  .build{
+    font-family:var(--font-mono);font-size:7.5px;letter-spacing:.15em;color:var(--muted-2);
+  }
+
+  /* ---------------- generic panel chrome ---------------- */
+  .panel-cap{
+    display:flex;align-items:center;gap:9px;
+    padding:13px 16px;border-bottom:1px solid var(--line);
+    font-family:var(--font-mono);font-size:8.5px;letter-spacing:.16em;color:var(--muted);
+    flex:0 0 auto;
+  }
+  .panel-cap .cap-line{height:1px;flex:1;background:linear-gradient(90deg,var(--line-strong),transparent)}
+  .panel-cap b{font-weight:400;color:var(--orange);font-size:9px}
+
+  /* ---------------- parts index ---------------- */
+  .parts-panel{
+    position:fixed;left:28px;top:116px;bottom:108px;width:266px;z-index:11;
+    display:flex;flex-direction:column;overflow:hidden;
+    background:linear-gradient(172deg,rgba(15,21,23,.93) 0%,rgba(8,12,14,.86) 72%,rgba(6,9,11,.91) 100%);
+    border:1px solid var(--line);
+    box-shadow:0 24px 70px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.025);
+    backdrop-filter:blur(18px) saturate(120%);
+    clip-path:polygon(0 0,calc(100% - 14px) 0,100% 14px,100% 100%,14px 100%,0 calc(100% - 14px));
+  }
+  .parts-panel::before{
+    content:"";position:absolute;left:0;top:0;width:1px;height:104px;
+    background:linear-gradient(180deg,var(--orange),transparent);opacity:.7;
+  }
+  .parts-list{
+    flex:1;overflow-y:auto;overflow-x:hidden;
+    scrollbar-width:thin;scrollbar-color:rgba(151,186,192,.2) transparent;
+  }
+  .parts-list::-webkit-scrollbar{width:3px}
+  .parts-list::-webkit-scrollbar-thumb{background:rgba(151,186,192,.2)}
+  .part-item{
+    position:relative;width:100%;display:grid;
+    grid-template-columns:26px minmax(0,1fr) 8px;
+    align-items:center;gap:10px;
+    padding:12px 15px 12px 14px;
+    border:0;border-bottom:1px solid rgba(151,186,192,.07);
+    background:transparent;text-align:left;cursor:pointer;
+    transition:background .22s ease,padding-left .22s ease;
+  }
+  .part-item::before{
+    content:"";position:absolute;left:0;top:50%;width:1px;height:0;
+    background:var(--orange);transform:translateY(-50%);
+    box-shadow:0 0 8px var(--orange);transition:height .25s ease;
+  }
+  .part-item:hover{background:rgba(255,255,255,.028);padding-left:17px}
+  .part-item.hover{background:rgba(116,240,255,.04);padding-left:17px}
+  .part-item.hover::before{height:26px;background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+  .part-item.hover .part-idx{color:var(--cyan)}
+  .part-item:hover::before{height:26px}
+  .part-item.active{background:linear-gradient(90deg,rgba(255,92,36,.10),rgba(255,92,36,.015) 70%,transparent)}
+  .part-item.active::before{height:38px}
+  .part-idx{
+    font-family:var(--font-mono);font-size:9px;color:var(--muted-2);
+    letter-spacing:.08em;transition:color .2s;
+  }
+  .part-item:hover .part-idx{color:var(--cyan)}
+  .part-item.active .part-idx{color:var(--orange)}
+  .part-copy{display:block;min-width:0}
+  .part-name{
+    display:block;font-size:12.5px;line-height:1.25;letter-spacing:.045em;
+    color:#cbd7d9;transition:color .2s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .part-item.active .part-name{color:#fff}
+  .part-en{
+    display:block;font-family:var(--font-mono);font-size:7px;line-height:1.55;
+    letter-spacing:.12em;color:var(--muted-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .part-state{
+    width:5px;height:5px;border:1px solid rgba(151,186,192,.28);
+    transform:rotate(45deg);transition:.22s;
+  }
+  .part-item:hover .part-state{border-color:var(--cyan);box-shadow:0 0 7px rgba(116,240,255,.5)}
+  .part-item.active .part-state{background:var(--orange);border-color:var(--orange);box-shadow:0 0 8px rgba(255,92,36,.75)}
+  .panel-status{
+    flex:0 0 auto;border-top:1px solid var(--line);padding:12px 15px;
+    display:flex;align-items:center;gap:9px;background:rgba(4,7,8,.35);
+  }
+  .panel-status .status-dot{
+    width:5px;height:5px;border-radius:50%;background:var(--green);
+    box-shadow:0 0 8px rgba(182,255,95,.66);animation:statusPulse 3s ease-in-out infinite;
+  }
+  .panel-status div{min-width:0;flex:1}
+  .panel-status b{display:block;font-family:var(--font-mono);font-size:7.5px;font-weight:400;letter-spacing:.14em;color:#b9c9c9}
+  .panel-status small{display:block;font-size:8.5px;color:var(--muted-2);margin-top:3px;white-space:nowrap}
+  .panel-status .hash{font-family:var(--font-mono);font-size:6.5px;color:var(--muted-2);letter-spacing:.08em}
+
+  /* ---------------- detail panel ---------------- */
+  .detail-panel{
+    position:fixed;right:28px;top:116px;bottom:108px;width:330px;z-index:11;
+    display:flex;flex-direction:column;overflow:hidden;
+    background:linear-gradient(196deg,rgba(15,21,23,.93) 0%,rgba(8,12,14,.87) 72%,rgba(6,9,11,.93) 100%);
+    border:1px solid var(--line);
+    box-shadow:0 24px 70px rgba(0,0,0,.24),inset 0 1px 0 rgba(255,255,255,.025);
+    backdrop-filter:blur(18px) saturate(120%);
+    clip-path:polygon(14px 0,100% 0,100% calc(100% - 14px),calc(100% - 14px) 100%,0 100%,0 14px);
+  }
+  .detail-panel::after{
+    content:"";position:absolute;right:0;top:0;width:1px;height:110px;
+    background:linear-gradient(180deg,var(--cyan),transparent);opacity:.46;
+  }
+  .detail-scroll{
+    flex:1;overflow-y:auto;overflow-x:hidden;
+    scrollbar-width:thin;scrollbar-color:rgba(151,186,192,.18) transparent;
+  }
+  .detail-scroll::-webkit-scrollbar{width:3px}
+  .detail-scroll::-webkit-scrollbar-thumb{background:rgba(151,186,192,.18)}
+
+  .overview-wrap{padding:18px 20px 22px}
+  .overview-kicker{
+    display:flex;align-items:center;gap:8px;
+    font-family:var(--font-mono);font-size:7.5px;letter-spacing:.18em;color:var(--muted);
+  }
+  .overview-kicker::before{content:"";width:16px;height:1px;background:var(--orange)}
+  .overview-title{
+    margin-top:14px;font-family:var(--font-display);font-size:33px;line-height:1.03;
+    font-weight:600;letter-spacing:-.015em;
+  }
+  .overview-title em{font-style:normal;color:var(--orange)}
+  .overview-copy{
+    margin-top:13px;font-size:10.5px;line-height:1.9;color:var(--muted);letter-spacing:.025em;
+  }
+  .stat-grid{
+    display:grid;grid-template-columns:1fr 1fr;gap:1px;
+    margin-top:18px;background:var(--line);border:1px solid var(--line);
+  }
+  .stat-cell{background:rgba(7,11,12,.78);padding:11px 12px 10px;min-height:62px}
+  .stat-cell b{
+    display:block;font-family:var(--font-display);font-size:23px;line-height:1;font-weight:500;
+    color:#dce9ea;letter-spacing:.01em;
+  }
+  .stat-cell b span{font-family:var(--font-mono);font-size:8px;color:var(--orange);letter-spacing:.04em}
+  .stat-cell small{
+    display:block;margin-top:7px;font-family:var(--font-mono);font-size:6.5px;
+    letter-spacing:.14em;color:var(--muted-2);
+  }
+  .mini-specs{margin-top:17px;border-top:1px solid var(--line)}
+  .mini-row{
+    display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:8px 0;border-bottom:1px solid rgba(151,186,192,.08);
+    font-size:9px;letter-spacing:.04em;color:var(--muted);
+  }
+  .mini-row b{font-family:var(--font-mono);font-weight:400;font-size:8px;color:#cad9db;letter-spacing:.02em}
+  .overview-cta{
+    display:flex;align-items:center;gap:10px;margin-top:18px;padding:11px 12px;
+    border:1px solid rgba(255,92,36,.24);background:rgba(255,92,36,.055);
+    color:#ff9a73;font-size:9px;letter-spacing:.08em;line-height:1.5;
+    width:100%;text-align:left;font-family:inherit;cursor:pointer;transition:.2s;
+  }
+  .overview-cta:hover{background:rgba(255,92,36,.11);border-color:rgba(255,92,36,.42)}
+  .overview-cta svg{width:17px;height:17px;flex:0 0 17px;stroke:var(--orange);fill:none;stroke-width:1.2}
+  .overview-cta span{flex:1}
+  .overview-cta kbd{
+    font-family:var(--font-mono);font-size:7px;border:1px solid rgba(255,92,36,.3);
+    padding:2px 4px;color:var(--orange);border-radius:1px;
+  }
+
+  .detail-wrap{padding:0 20px 24px;animation:detailIn .36s cubic-bezier(.2,.7,.2,1) both}
+  .detail-head{display:flex;align-items:flex-start;justify-content:space-between;padding-top:15px}
+  .detail-head .label{
+    font-family:var(--font-mono);font-size:7px;letter-spacing:.18em;color:var(--muted);
+  }
+  .detail-close{
+    width:26px;height:26px;border:1px solid var(--line);background:rgba(255,255,255,.02);
+    display:grid;place-items:center;cursor:pointer;color:var(--muted);transition:.2s;
+    margin-top:-6px;margin-right:-3px;
+  }
+  .detail-close svg{width:10px;height:10px;stroke:currentColor;stroke-width:1.2;fill:none}
+  .detail-close:hover{color:var(--text);border-color:var(--line-strong);background:rgba(255,255,255,.05)}
+  .detail-number{
+    margin-top:17px;font-family:var(--font-display);font-size:70px;line-height:.74;
+    font-weight:200;color:transparent;-webkit-text-stroke:1px rgba(116,240,255,.24);
+    letter-spacing:-.02em;
+  }
+  .detail-title{
+    margin-top:6px;font-family:var(--font-display);font-size:28px;line-height:1.12;
+    font-weight:600;letter-spacing:.01em;color:#eef7f8;
+  }
+  .detail-en{
+    margin-top:5px;font-family:var(--font-mono);font-size:7.5px;
+    letter-spacing:.17em;color:var(--orange);
+  }
+  .detail-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
+  .detail-tags span{
+    font-family:var(--font-mono);font-size:6.5px;letter-spacing:.1em;
+    border:1px solid rgba(151,186,192,.16);color:var(--muted);padding:4px 6px;
+    background:rgba(255,255,255,.015);
+  }
+  .detail-desc{
+    margin-top:15px;padding-top:13px;border-top:1px solid var(--line);
+    font-size:10.5px;line-height:1.9;color:var(--muted);letter-spacing:.02em;
+  }
+  .spec-table{margin-top:17px;border-top:1px solid var(--line-strong)}
+  .spec-row{
+    display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+    padding:9px 0;border-bottom:1px solid rgba(151,186,192,.08);
+  }
+  .spec-row span{font-size:8.5px;letter-spacing:.06em;color:var(--muted-2);white-space:nowrap}
+  .spec-row b{
+    font-family:var(--font-mono);font-size:8px;font-weight:400;
+    letter-spacing:.02em;color:#d9e6e7;text-align:right;line-height:1.45;
+  }
+  .detail-footer{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    margin-top:15px;padding-top:11px;border-top:1px solid var(--line);
+    font-family:var(--font-mono);font-size:6.5px;letter-spacing:.1em;color:var(--muted-2);
+  }
+  .signal{display:flex;align-items:center;gap:6px;color:var(--cyan)}
+  .signal i{width:4px;height:4px;background:var(--cyan);border-radius:50%;box-shadow:0 0 8px var(--cyan)}
+
+  /* ---------------- callouts / leaders ---------------- */
+  #leaderSvg{position:fixed;inset:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:visible}
+  .leader{fill:none;stroke:rgba(116,240,255,.28);stroke-width:1;stroke-dasharray:2 4;transition:stroke .2s,stroke-dasharray .2s,opacity .2s}
+  .leader.active{stroke:rgba(255,92,36,.86);stroke-dasharray:none}
+  .leader-dot{fill:rgba(116,240,255,.8);transition:fill .2s}
+  .leader-dot.active{fill:var(--orange)}
+  .leader-g{opacity:0;transition:opacity .28s ease}
+  .leader-g.visible{opacity:1}
+
+  #calloutLayer{position:fixed;inset:0;z-index:6;pointer-events:none}
+  .callout{
+    position:absolute;width:174px;display:flex;gap:8px;align-items:flex-start;
+    padding:6px 8px;background:rgba(4,8,9,.64);
+    border-left:1px solid rgba(116,240,255,.34);
+    backdrop-filter:blur(7px);
+    opacity:0;pointer-events:auto;cursor:pointer;
+    transition:opacity .22s,border-color .2s,background .2s,transform .22s;
+    will-change:left,top,opacity;
+  }
+  .callout.visible{opacity:1}
+  .callout:hover{background:rgba(10,18,20,.9);border-left-color:var(--cyan)}
+  .callout.active{background:rgba(255,92,36,.11);border-left-color:var(--orange)}
+  .callout .c-idx{
+    font-family:var(--font-mono);font-size:8px;line-height:1.35;color:var(--cyan);
+    flex:0 0 14px;transition:color .2s;
+  }
+  .callout.active .c-idx{color:var(--orange)}
+  .callout .c-txt{min-width:0}
+  .callout b{
+    display:block;font-size:10px;font-weight:500;line-height:1.35;
+    letter-spacing:.05em;color:#d7e4e6;white-space:nowrap;
+  }
+  .callout small{
+    display:block;margin-top:3px;font-family:var(--font-mono);font-size:6.5px;
+    letter-spacing:.06em;color:var(--muted);white-space:nowrap;
+  }
+  .callout .c-corner{
+    width:4px;height:4px;margin-left:auto;margin-top:2px;border-top:1px solid rgba(116,240,255,.4);
+    border-right:1px solid rgba(116,240,255,.4);flex:0 0 4px;
+  }
+  .callout.active .c-corner{border-color:var(--orange)}
+
+  /* ---------------- cursor tooltip ---------------- */
+  #hoverTip{
+    position:fixed;z-index:9;pointer-events:none;display:flex;align-items:center;gap:8px;
+    padding:7px 9px;background:rgba(4,8,9,.9);border:1px solid rgba(116,240,255,.22);
+    box-shadow:0 8px 30px rgba(0,0,0,.4),0 0 22px rgba(116,240,255,.04);
+    opacity:0;transform:translate(0,0);transition:opacity .12s;
+    backdrop-filter:blur(8px);white-space:nowrap;
+  }
+  #hoverTip.visible{opacity:1}
+  #hoverTip .ht-index{font-family:var(--font-mono);font-size:8px;color:var(--orange)}
+  #hoverTip b{display:block;font-size:9.5px;font-weight:500;letter-spacing:.06em;color:#e5f0f1}
+  #hoverTip small{display:block;margin-top:2px;font-family:var(--font-mono);font-size:6px;letter-spacing:.1em;color:var(--muted)}
+
+  /* ---------------- dock ---------------- */
+  .dock{
+    position:fixed;left:50%;bottom:23px;transform:translateX(-50%);z-index:15;
+    display:flex;align-items:center;gap:7px;padding:7px;
+    background:linear-gradient(175deg,rgba(18,25,27,.92),rgba(6,10,11,.92));
+    border:1px solid var(--line);
+    box-shadow:0 20px 60px rgba(0,0,0,.38),inset 0 1px 0 rgba(255,255,255,.03);
+    backdrop-filter:blur(18px) saturate(130%);
+    clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+  }
+  .explode-btn{
+    position:relative;height:52px;min-width:196px;border:0;cursor:pointer;
+    display:flex;align-items:center;gap:11px;padding:0 14px;
+    color:#100603;background:linear-gradient(118deg,#ff8244 0%,#ff5c24 48%,#ec440d 100%);
+    clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,0 100%);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.34),0 0 26px rgba(255,92,36,.12);
+    transition:filter .2s,transform .2s;
+  }
+  .explode-btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+  .explode-btn:active{transform:translateY(0);filter:brightness(.98)}
+  .explode-btn.active{
+    background:linear-gradient(118deg,rgba(38,44,46,.96),rgba(17,22,24,.96));
+    color:#ff9a73;box-shadow:inset 0 0 0 1px rgba(255,92,36,.5),0 0 22px rgba(255,92,36,.1);
+  }
+  .explode-btn.active .btn-icon{border-color:rgba(255,92,36,.36);background:rgba(255,92,36,.07)}
+  .explode-btn .btn-icon{
+    width:30px;height:30px;flex:0 0 30px;display:grid;place-items:center;
+    border:1px solid rgba(12,5,2,.28);background:rgba(16,6,3,.08);
+  }
+  .explode-btn .btn-icon svg{width:16px;height:16px;stroke:#160804;fill:none;stroke-width:1.4;stroke-linecap:square}
+  .btn-copy{display:flex;flex-direction:column;align-items:flex-start;min-width:0}
+  .btn-copy small{
+    font-family:var(--font-mono);font-size:6.5px;letter-spacing:.14em;
+    color:rgba(16,6,3,.6);line-height:1.2;
+  }
+  .btn-copy b{font-family:var(--font-display);font-size:14px;letter-spacing:.05em;font-weight:600;line-height:1.3;white-space:nowrap}
+  .explode-btn kbd{
+    margin-left:auto;font-family:var(--font-mono);font-size:6.5px;color:rgba(16,6,3,.5);
+    border:1px solid rgba(16,6,3,.22);padding:2px 4px;
+  }
+  .explode-btn.active .btn-icon svg{stroke:#ff9a73}
+  .explode-btn.active .btn-copy small{color:rgba(255,154,115,.62)}
+  .explode-btn.active kbd{color:rgba(255,154,115,.6);border-color:rgba(255,154,115,.26)}
+  .tool-divider{width:1px;height:34px;background:var(--line);margin:0 2px}
+  .tool{
+    width:48px;height:52px;border:1px solid transparent;background:transparent;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+    color:var(--muted);transition:.2s;position:relative;
+  }
+  .tool svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.25;stroke-linecap:round;stroke-linejoin:round}
+  .tool span{font-family:var(--font-mono);font-size:6px;letter-spacing:.13em;line-height:1}
+  .tool:hover{color:#e0edef;background:rgba(255,255,255,.035)}
+  .tool.active{color:var(--cyan);border-color:rgba(116,240,255,.24);background:rgba(116,240,255,.06)}
+  .tool.active::after{
+    content:"";position:absolute;bottom:-1px;left:50%;transform:translateX(-50%);
+    width:12px;height:1px;background:var(--cyan);box-shadow:0 0 7px var(--cyan);
+  }
+  .gesture-hint{
+    display:flex;align-items:center;gap:10px;padding:0 8px 0 10px;
+    border-left:1px solid var(--line);min-width:212px;
+  }
+  .gesture-hint svg{width:25px;height:25px;stroke:var(--muted);fill:none;stroke-width:1;opacity:.8}
+  .gesture-hint .g-copy b{display:block;font-size:8px;font-weight:400;letter-spacing:.06em;color:#b3c3c5}
+  .gesture-hint .g-copy small{display:block;margin-top:4px;font-family:var(--font-mono);font-size:6px;letter-spacing:.06em;color:var(--muted-2)}
+
+  /* ---------------- loading ---------------- */
+  #boot{
+    position:fixed;inset:0;z-index:100;background:
+      radial-gradient(ellipse at 50% 48%,rgba(20,47,53,.3),transparent 62%),
+      #040708;
+    display:grid;place-items:center;
+    transition:opacity .8s ease,visibility .8s ease;
+  }
+  #boot.done{opacity:0;visibility:hidden;pointer-events:none}
+  .boot-inner{width:min(440px,calc(100vw - 48px));text-align:left}
+  .boot-mark{
+    width:52px;height:52px;border-radius:50%;border:1px solid rgba(151,186,192,.26);
+    position:relative;margin-bottom:23px;
+    background:radial-gradient(circle at 38% 32%,rgba(116,240,255,.3),transparent 28%),#071013;
+    box-shadow:0 0 40px rgba(116,240,255,.07);
+  }
+  .boot-mark::before{
+    content:"";position:absolute;inset:9px;border:1px solid rgba(116,240,255,.34);
+    border-radius:50%;animation:bootSpin 5s linear infinite;
+    border-right-color:transparent;
+  }
+  .boot-kicker{font-family:var(--font-mono);font-size:7.5px;letter-spacing:.24em;color:var(--muted);margin-bottom:9px}
+  .boot-inner h2{
+    font-family:var(--font-display);font-size:46px;line-height:.94;font-weight:500;letter-spacing:.01em;
+  }
+  .boot-inner h2 span{
+    display:block;margin-top:7px;font-family:var(--font-mono);font-size:9px;
+    letter-spacing:.3em;color:var(--orange);font-weight:400;
+  }
+  .boot-progress{height:1px;background:rgba(151,186,192,.13);margin-top:28px;overflow:hidden}
+  .boot-progress i{
+    display:block;width:36%;height:1px;background:var(--cyan);
+    box-shadow:0 0 8px rgba(116,240,255,.7);animation:bootLoad 1.5s cubic-bezier(.5,0,.2,1) infinite;
+  }
+  .boot-row{
+    display:flex;justify-content:space-between;margin-top:9px;
+    font-family:var(--font-mono);font-size:6.5px;letter-spacing:.13em;color:var(--muted-2);
+  }
+  .boot-row #bootStatus{color:var(--muted)}
+
+  @keyframes bootLoad{0%{transform:translateX(-110%)}50%{transform:translateX(110%)}100%{transform:translateX(310%)}}
+  @keyframes bootSpin{to{transform:rotate(360deg)}}
+  @keyframes statusPulse{0%,100%{opacity:.5}50%{opacity:1}}
+  @keyframes detailIn{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+
+  /* ---------------- responsive ---------------- */
+  @media (max-width:1180px){
+    .parts-panel{width:232px;left:18px;top:106px;bottom:100px}
+    .detail-panel{width:294px;right:18px;top:106px;bottom:100px}
+    .topbar{padding:0 22px}
+    .gesture-hint{display:none}
+    .callout{display:none}
+    #leaderSvg{display:none}
+    .dock{bottom:18px}
+    .mode-readout{display:none}
+  }
+  @media (max-width:900px){
+    .topbar{height:74px;padding:0 16px}
+    .topbar::after{left:16px;right:16px}
+    .lens-mark{width:34px;height:34px;flex-basis:34px}
+    .product-line h1{font-size:22px}
+    .product-line .teardown{font-size:7px}
+    .overline{font-size:6.5px;letter-spacing:.15em}
+    .build,.status-chip{display:none}
+    .corner-marks span{display:none}
+    .parts-panel{
+      top:auto;left:12px;right:12px;bottom:92px;width:auto;height:72px;
+      clip-path:none;border-radius:0;
+    }
+    .parts-panel::before{display:none}
+    .panel-cap,.panel-status{display:none}
+    .parts-list{display:flex;flex-direction:row;overflow-x:auto;overflow-y:hidden;height:100%;gap:6px;padding:9px;scrollbar-width:none}
+    .parts-list::-webkit-scrollbar{display:none}
+    .part-item{
+      flex:0 0 138px;width:138px;height:54px;grid-template-columns:22px minmax(0,1fr);
+      padding:8px 9px;border:1px solid rgba(151,186,192,.12);border-bottom:1px solid rgba(151,186,192,.12);
+      gap:7px;
+    }
+    .part-item:hover{padding-left:9px}
+    .part-en,.part-state{display:none}
+    .part-name{font-size:11px}
+    .part-item::before{top:auto;bottom:0;left:9px;width:0;height:1px;transform:none;transition:width .2s}
+    .part-item:hover::before,.part-item.active::before{height:1px;width:calc(100% - 18px)}
+    .detail-panel{
+      display:none;top:auto;left:12px;right:12px;bottom:92px;width:auto;
+      max-height:56vh;clip-path:none;
+    }
+    body.has-detail .detail-panel{display:flex}
+    body.has-detail .parts-panel{display:none}
+    .detail-scroll{overflow-y:auto}
+    .detail-number{font-size:54px}
+    .detail-title{font-size:25px}
+    .overview-title{font-size:29px}
+    .dock{left:12px;right:12px;bottom:12px;transform:none;justify-content:space-between;clip-path:none}
+    .explode-btn{min-width:0;flex:1;max-width:270px}
+    .btn-copy b{font-size:13px}
+    .tool-divider{margin:0}
+    .tool{width:43px}
+    .tool span{font-size:5.5px}
+  }
+  @media (max-width:600px){
+    .product-line .teardown{display:none}
+    .product-line h1{font-size:20px}
+    .explode-btn kbd{display:none}
+    .explode-btn .btn-icon{width:26px;height:26px;flex-basis:26px}
+    .explode-btn{padding:0 10px;gap:8px}
+    .btn-copy small{display:none}
+    .btn-copy b{font-size:12px}
+    .dock{padding:5px;gap:4px}
+    .tool{width:38px;height:48px}
+    .explode-btn{height:48px}
+    .parts-panel{height:64px;bottom:80px}
+    .part-item{height:46px;flex-basis:126px;width:126px}
+    .detail-panel{bottom:80px;max-height:60vh}
+    .overview-wrap{padding:15px 16px 18px}
+    .detail-wrap{padding:0 16px 20px}
+    .overview-copy{font-size:10px}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001s!important;animation-iteration-count:1!important}
+    .callout{transition:none}
+  }
+</style>
+</head>
+<body>
+  <canvas id="scene" aria-label="Insta360 Ace Pro 2 三维结构拆解视图"></canvas>
+
+  <div class="fx fx-grid"></div>
+  <div class="fx fx-scan"></div>
+  <div class="fx fx-vignette"></div>
+  <div class="fx fx-grain"></div>
+  <div class="corner-marks" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+  <svg id="leaderSvg" aria-hidden="true"></svg>
+  <div id="calloutLayer" aria-hidden="true"></div>
+
+  <div id="hoverTip" role="tooltip">
+    <span class="ht-index">01</span>
+    <span><b></b><small></small></span>
+  </div>
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="lens-mark" aria-hidden="true"></div>
+      <div class="brand-copy">
+        <div class="overline">INSTA360 · ENGINEERING LAB / 影像工程实验室</div>
+        <div class="product-line">
+          <h1>ACE PRO 2</h1>
+          <span class="slash">/</span>
+          <span class="teardown">STRUCTURAL TEARDOWN</span>
+        </div>
+      </div>
+    </div>
+    <div class="mode-readout" aria-hidden="true">
+      <i></i>
+      <span>MODE</span>
+      <b id="modeLabel">ASSEMBLED</b>
+      <em id="modeScale">01 / 09</em>
+    </div>
+    <div class="top-tools">
+      <div class="status-chip"><i></i><span>WEBGL / REALTIME</span></div>
+      <span class="build">BUILD 02.25</span>
+    </div>
+  </header>
+
+  <aside class="parts-panel" aria-label="部件清单">
+    <div class="panel-cap">
+      <span>DECONSTRUCTION INDEX</span><span class="cap-line"></span><b>09</b>
+    </div>
+    <div class="parts-list" id="partsList"></div>
+    <div class="panel-status">
+      <span class="status-dot"></span>
+      <div>
+        <b>ASSEMBLY READY</b>
+        <small>选择模块以展开结构</small>
+      </div>
+      <span class="hash">#AP2-09</span>
+    </div>
+  </aside>
+
+  <aside class="detail-panel" id="detailPanel" aria-label="部件详情">
+    <div class="panel-cap">
+      <span>SYS / DATA</span><span class="cap-line"></span><b id="detailCap">OVR</b>
+    </div>
+    <div class="detail-scroll" id="detailScroll"></div>
+  </aside>
+
+  <footer class="dock" aria-label="拆解控制">
+    <button id="explodeBtn" class="explode-btn" aria-pressed="false">
+      <span class="btn-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24">
+          <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/>
+          <path d="M8 8l3 3M16 8l-3 3M8 16l3-3M16 16l-3-3" opacity=".5"/>
+        </svg>
+      </span>
+      <span class="btn-copy">
+        <small id="explodeKicker">EXPLODE SEQUENCE</small>
+        <b id="explodeLabel">拆解整机</b>
+      </span>
+      <kbd>E</kbd>
+    </button>
+    <span class="tool-divider"></span>
+    <button class="tool" id="resetBtn" title="复位视角与结构" aria-label="复位视角与结构">
+      <svg viewBox="0 0 24 24"><path d="M4 10a8 8 0 1 1 2.34 6.1"/><path d="M4 4v6h6"/></svg>
+      <span>RESET</span>
+    </button>
+    <button class="tool" id="autoBtn" title="自动环绕" aria-label="自动环绕" aria-pressed="false">
+      <svg viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="3.6"/><path d="M17.5 6.2l2.6-1.1-.3 2.8"/><path d="M6.5 17.8l-2.6 1.1.3-2.8" opacity=".45"/></svg>
+      <span>AUTO</span>
+    </button>
+    <button class="tool active" id="labelsBtn" title="显示/隐藏部件标注" aria-label="显示或隐藏部件标注" aria-pressed="true">
+      <svg viewBox="0 0 24 24"><path d="M4 7h10M4 12h6M4 17h8"/><path d="M15.5 15.5l4-4M18 8.2l1.8 1.8-4 4-2.5.7.7-2.5z"/></svg>
+      <span>LABELS</span>
+    </button>
+    <div class="gesture-hint" aria-hidden="true">
+      <svg viewBox="0 0 32 32"><rect x="10" y="2" width="12" height="19" rx="6"/><path d="M16 2v7M13 28h6M22.5 8.5l3 3M9.5 8.5l-3 3"/></svg>
+      <span class="g-copy">
+        <b>拖拽旋转 · 滚轮缩放</b>
+        <small>CLICK A MODULE TO EXPLODE</small>
+      </span>
+    </div>
+  </footer>
+
+  <div id="boot" role="status" aria-live="polite">
+    <div class="boot-inner">
+      <div class="boot-mark" aria-hidden="true"></div>
+      <div class="boot-kicker">INSTA360 / STRUCTURAL IMAGING LAB</div>
+      <h2>ACE PRO 2<span>TEARDOWN PROTOCOL</span></h2>
+      <div class="boot-progress"><i></i></div>
+      <div class="boot-row"><span id="bootStatus">INITIALIZING OPTICAL STACK</span><span>09 MODULES</span></div>
+    </div>
+  </div>
+
+  <noscript>
+    <div style="position:fixed;inset:0;z-index:200;background:#050708;color:#e8f1f2;display:grid;place-items:center;font-family:sans-serif;text-align:center;padding:24px">
+      该 3D 拆解视图需要启用 JavaScript 与 WebGL。
+    </div>
+  </noscript>
+
+  <script>
+    window.__AP2_READY__ = false;
+    setTimeout(function(){
+      if (!window.__AP2_READY__) {
+        var s = document.getElementById('bootStatus');
+        if (s) s.textContent = 'LOADING THREE.JS MODULES · 请稍候';
+      }
+    }, 25000);
+  </script>
+
+  <script type="module">
+  import * as THREE from 'three';
+  import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+  import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+  import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+  import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+  import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+  import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+  /* =========================================================
+     01 / DATA
+     ========================================================= */
+  const PARTS = [
+    {
+      id:'body', index:'01', name:'一体式机身', en:'UNIBODY SHELL', cat:'STRUCTURE',
+      tags:['SEALED CHASSIS','RUGGED'],
+      desc:'高强度复合机身以金属骨架贯穿受力节点，前后壳一体化密封，兼顾抗跌落与裸机防水。所有模组都固定在这套结构基准之上。',
+      specs:[
+        ['外形尺寸','71.9 × 52.2 × 38 mm'],
+        ['整机重量','182 g'],
+        ['防水能力','裸机 12 m / 潜水壳 60 m'],
+        ['工作温度','-20℃ 至 45℃']
+      ],
+      callout:'71.9 × 52.2 × 38 mm',
+      side:'left'
+    },
+    {
+      id:'lens', index:'02', name:'徕卡镜头', en:'LEICA SUMMARIT LENS', cat:'OPTICS',
+      tags:['F2.6','157° FOV','13 MM EQ.'],
+      desc:'与徕卡联合研发的 Summarit 光学镜头。超广角视野配合 F2.6 大光圈，在运动相机的小型镜组中保留更多边缘细节与进光量。',
+      specs:[
+        ['最大光圈','F2.6'],
+        ['等效焦距','13 mm'],
+        ['视场角','157°'],
+        ['光学结构','徕卡 Summarit 镜组']
+      ],
+      callout:'F2.6 · 157° · 13 MM',
+      side:'right'
+    },
+    {
+      id:'sensor', index:'03', name:'影像传感器', en:'1/1.3" CMOS SENSOR', cat:'IMAGING',
+      tags:['50 MP','8K 30FPS','PUREVIDEO'],
+      desc:'1/1.3 英寸大底传感器是 Ace Pro 2 的影像核心。更大的感光面积配合双芯实时降噪，为 8K 视频与 5000 万像素照片提供原始数据。',
+      specs:[
+        ['传感器','1/1.3" CMOS'],
+        ['照片分辨率','5000 万像素'],
+        ['最高视频','8K / 30fps'],
+        ['低光算法','PureVideo']
+      ],
+      callout:'1/1.3" · 50 MP · 8K',
+      side:'right'
+    },
+    {
+      id:'board', index:'04', name:'双芯主板', en:'DUAL AI MAINBOARD', cat:'COMPUTE',
+      tags:['5NM AI','PRO IMAGING','FLOWSTATE'],
+      desc:'5nm AI 芯片与专业影像芯片构成双芯架构。一枚负责场景识别与实时计算，另一枚专注高码率影像处理，共同完成 8K 管线与防抖运算。',
+      specs:[
+        ['芯片架构','AI 双芯'],
+        ['AI 制程','5 nm'],
+        ['影像引擎','Pro Imaging Chip'],
+        ['防抖系统','FlowState 防抖']
+      ],
+      callout:'5NM AI + PRO IMAGING',
+      side:'left'
+    },
+    {
+      id:'thermal', index:'05', name:'散热系统', en:'THERMAL STACK', cat:'THERMAL',
+      tags:['GRAPHENE','COPPER','PASSIVE'],
+      desc:'石墨烯导热层将 SoC 与传感器热量快速摊开，铜质热管与鳍片组成的被动风道把热量导向机身表面，支撑高码率长时间录制。',
+      specs:[
+        ['导热材料','石墨烯 + 铜'],
+        ['散热形式','被动式导热'],
+        ['热管','铜质均温'],
+        ['设计目标','8K 持续录制']
+      ],
+      callout:'GRAPHENE + COPPER',
+      side:'right'
+    },
+    {
+      id:'battery', index:'06', name:'长效电池', en:'1800mAh ENDURANCE CELL', cat:'POWER',
+      tags:['1800MAH','30W FAST CHARGE'],
+      desc:'1800mAh 高密度电芯配合 30W 快充。18 分钟即可回充至 80%，完整充电约 47 分钟，同时支持边充边录。',
+      specs:[
+        ['电池容量','1800 mAh'],
+        ['充电功率','30 W'],
+        ['充至 80%','约 18 分钟'],
+        ['最长续航','约 180 分钟']
+      ],
+      callout:'1800 mAh · 30 W · 180 MIN',
+      side:'left'
+    },
+    {
+      id:'screen', index:'07', name:'翻转触摸屏', en:'2.5" FLIP TOUCHSCREEN', cat:'DISPLAY',
+      tags:['2.5 INCH','180° FLIP','TOUCH'],
+      desc:'2.5 英寸高亮翻转触摸屏，向上翻开后可面向镜头取景，让自拍、Vlog 与低位构图都能直接看到画面。',
+      specs:[
+        ['屏幕尺寸','2.5 英寸'],
+        ['翻转结构','上翻 180°'],
+        ['交互方式','全触控'],
+        ['表面','强化玻璃']
+      ],
+      callout:'2.5" · 180° FLIP',
+      side:'left'
+    },
+    {
+      id:'controls', index:'08', name:'顶部控制舱', en:'TOP CONTROL DECK', cat:'CONTROL',
+      tags:['SHUTTER','Q BUTTON','3-MIC'],
+      desc:'机械快门、Q 快捷与三麦克风阵列集成在顶部控制舱。风噪抑制结构在不增加体积的前提下提升户外收音清晰度。',
+      specs:[
+        ['主按键','机械快门'],
+        ['快捷操作','Q 键'],
+        ['收音系统','三麦克风'],
+        ['降噪','Wind Guard 风噪抑制']
+      ],
+      callout:'SHUTTER / Q / 3-MIC',
+      side:'right'
+    },
+    {
+      id:'mount', index:'09', name:'磁吸快拆底座', en:'MAGNETIC QUICK MOUNT', cat:'MOUNT',
+      tags:['MAGNETIC','1/4" THREAD'],
+      desc:'磁吸快拆底座与 1/4 英寸标准螺孔同时保留。金属承力环把载荷直接传给机身骨架，兼容自拍杆、胸带与头盔配件。',
+      specs:[
+        ['安装结构','磁吸快拆'],
+        ['标准螺孔','1/4 英寸'],
+        ['承力材质','金属底座'],
+        ['配件生态','Ace Pro 2 全系']
+      ],
+      callout:'MAGNETIC / 1/4" THREAD',
+      side:'right'
+    }
+  ];
+  const PART_MAP = new Map(PARTS.map(p => [p.id, p]));
+
+  const state = {
+    exploded:false, selected:null, hovered:null,
+    labels:true, autoRotate:false,
+    ready:false, dragging:false, frameY:0
+  };
+
+  const isCompact = () => window.innerWidth <= 900;
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* =========================================================
+     02 / RENDERER & SCENE
+     ========================================================= */
+  const canvas = document.getElementById('scene');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({
+      canvas, antialias:true, alpha:false,
+      powerPreference:'high-performance'
+    });
+  } catch (error) {
+    document.getElementById('bootStatus').textContent = 'WEBGL NOT AVAILABLE';
+    throw error;
+  }
+
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x050708);
+  scene.fog = new THREE.FogExp2(0x050708, 0.034);
+
+  const camera = new THREE.PerspectiveCamera(34, window.innerWidth / window.innerHeight, 0.1, 80);
+  const HOME_POS = new THREE.Vector3(2.72, 1.72, 4.38);
+  const HOME_TARGET = new THREE.Vector3(0, 0.02, 0);
+  const EXPLODE_POS = new THREE.Vector3(4.7, 2.9, 10.4);
+  const EXPLODE_TARGET = new THREE.Vector3(0, 0.3, 0);
+  camera.position.copy(HOME_POS);
+
+  const controls = new OrbitControls(camera, canvas);
+  controls.target.copy(HOME_TARGET);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.065;
+  controls.rotateSpeed = 0.62;
+  controls.zoomSpeed = 0.82;
+  controls.panSpeed = 0.6;
+  controls.screenSpacePanning = true;
+  controls.enablePan = true;
+  controls.minDistance = 3.2;
+  controls.maxDistance = 14;
+  controls.minPolarAngle = 0.22;
+  controls.maxPolarAngle = Math.PI * 0.54;
+  controls.autoRotateSpeed = 0.55;
+  controls.update();
+
+  /* =========================================================
+     03 / ENVIRONMENT & LIGHTS
+     ========================================================= */
+  function buildEnvironment(){
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const envScene = new THREE.Scene();
+    envScene.background = new THREE.Color(0x020304);
+
+    function panel(hex, intensity, width, height, pos){
+      const color = new THREE.Color(hex).multiplyScalar(intensity);
+      const mesh = new THREE.Mesh(
+        new THREE.PlaneGeometry(width, height),
+        new THREE.MeshBasicMaterial({ color, side:THREE.DoubleSide })
+      );
+      mesh.position.set(pos[0], pos[1], pos[2]);
+      mesh.lookAt(0, 0, 0);
+      envScene.add(mesh);
+    }
+
+    panel(0xffffff, 2.2, 7, 4, [0, 7.5, 0]);
+    panel(0x9fefff, 1.15, 2.4, 6, [-6.4, 1.2, 2.1]);
+    panel(0xff8a51, 0.95, 2.8, 4, [6.6, 0.2, 1.2]);
+    panel(0xd4f7ff, 0.62, 6.2, 2.4, [0, 2.2, 8.4]);
+    panel(0x2f8596, 0.8, 1.2, 5, [0, 1.0, -7.6]);
+    panel(0xffffff, 0.36, 4.5, 1, [0, -3.8, 4.2]);
+
+    const envTex = pmrem.fromScene(envScene, 0.025).texture;
+    scene.environment = envTex;
+    envScene.traverse(o => {
+      if (o.isMesh) {
+        o.geometry.dispose();
+        o.material.dispose();
+      }
+    });
+    pmrem.dispose();
+  }
+  buildEnvironment();
+
+  const hemi = new THREE.HemisphereLight(0x86cfdd, 0x170d08, 0.42);
+  scene.add(hemi);
+
+  const keyLight = new THREE.DirectionalLight(0xfff7ef, 2.35);
+  keyLight.position.set(4.5, 7.5, 5.8);
+  keyLight.castShadow = true;
+  keyLight.shadow.mapSize.set(2048, 2048);
+  keyLight.shadow.camera.near = 1;
+  keyLight.shadow.camera.far = 20;
+  keyLight.shadow.camera.left = -5;
+  keyLight.shadow.camera.right = 5;
+  keyLight.shadow.camera.top = 5;
+  keyLight.shadow.camera.bottom = -5;
+  keyLight.shadow.bias = -0.0004;
+  keyLight.shadow.normalBias = 0.025;
+  scene.add(keyLight);
+
+  const rimCyan = new THREE.DirectionalLight(0x54e3ff, 1.55);
+  rimCyan.position.set(-5.5, 2.6, -4.2);
+  scene.add(rimCyan);
+
+  const frontFill = new THREE.DirectionalLight(0x97dce9, 0.62);
+  frontFill.position.set(-2.4, 1.1, 5.2);
+  scene.add(frontFill);
+
+  const warmRim = new THREE.PointLight(0xff5a1e, 26, 11, 2);
+  warmRim.position.set(3.7, 0.7, -2.8);
+  scene.add(warmRim);
+
+  const cyanFill = new THREE.PointLight(0x52e2ff, 16, 9, 2);
+  cyanFill.position.set(-3.5, 1.7, 2.1);
+  scene.add(cyanFill);
+
+  const topGlint = new THREE.PointLight(0xdffaff, 12, 7, 2);
+  topGlint.position.set(0.3, 3.0, 2.1);
+  scene.add(topGlint);
+
+  /* =========================================================
+     04 / TEXTURE FACTORY
+     ========================================================= */
+  const maxAnisotropy = Math.min(renderer.capabilities.getMaxAnisotropy(), 8);
+  function canvasTexture(width, height, draw, colorSpace = THREE.SRGBColorSpace){
+    const c = document.createElement('canvas');
+    c.width = width; c.height = height;
+    const ctx = c.getContext('2d');
+    draw(ctx, width, height);
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = colorSpace;
+    tex.anisotropy = maxAnisotropy;
+    tex.needsUpdate = true;
+    return tex;
+  }
+
+  function mulberry32(seed){
+    return function(){
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  function roundedRect(ctx, x, y, w, h, r){
+    const rr = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + rr, y);
+    ctx.arcTo(x + w, y, x + w, y + h, rr);
+    ctx.arcTo(x + w, y + h, x, y + h, rr);
+    ctx.arcTo(x, y + h, x, y, rr);
+    ctx.arcTo(x, y, x + w, y, rr);
+    ctx.closePath();
+  }
+
+  const gripTexture = canvasTexture(512, 512, (ctx, w, h) => {
+    ctx.fillStyle = '#777777'; ctx.fillRect(0, 0, w, h);
+    const rnd = mulberry32(91);
+    for (let i = 0; i < 9000; i++) {
+      const v = Math.floor(88 + rnd() * 74);
+      ctx.fillStyle = `rgba(${v},${v},${v},${0.1 + rnd() * 0.24})`;
+      const s = 1 + rnd() * 2;
+      ctx.fillRect(rnd() * w, rnd() * h, s, s);
+    }
+    ctx.strokeStyle = 'rgba(38,38,38,.38)';
+    ctx.lineWidth = 1;
+    for (let x = -h; x < w + h; x += 9) {
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + h, h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x + h, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+  }, THREE.NoColorSpace);
+  gripTexture.wrapS = gripTexture.wrapT = THREE.RepeatWrapping;
+  gripTexture.repeat.set(3.2, 2.2);
+
+  const grooveTexture = canvasTexture(256, 256, (ctx, w, h) => {
+    ctx.fillStyle = '#8b8b8b'; ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(30,30,30,.65)'; ctx.lineWidth = 2;
+    for (let y = -w; y < h + w; y += 10) {
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y + w); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w, y); ctx.lineTo(0, y + w); ctx.stroke();
+    }
+  }, THREE.NoColorSpace);
+  grooveTexture.wrapS = grooveTexture.wrapT = THREE.RepeatWrapping;
+  grooveTexture.repeat.set(2, 2.4);
+
+  function makeTextTexture(text, options = {}){
+    const {
+      width = 512, height = 128, color = '#dfeaeb',
+      font = '600 68px "Bahnschrift", sans-serif', tracking = 0,
+      align = 'center', bg = null, sub = null
+    } = options;
+    return canvasTexture(width, height, (ctx, w, h) => {
+      ctx.clearRect(0, 0, w, h);
+      if (bg) { ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h); }
+      ctx.fillStyle = color;
+      ctx.font = font;
+      ctx.textAlign = align;
+      ctx.textBaseline = 'middle';
+      const cx = align === 'left' ? 16 : w / 2;
+      if (!tracking) {
+        ctx.fillText(text, cx, sub ? h * 0.43 : h * 0.5);
+      } else {
+        let total = 0;
+        for (const ch of text) total += ctx.measureText(ch).width + tracking;
+        total -= tracking;
+        let x = align === 'left' ? 16 : (w - total) / 2;
+        ctx.textAlign = 'left';
+        for (const ch of text) {
+          ctx.fillText(ch, x, sub ? h * 0.43 : h * 0.5);
+          x += ctx.measureText(ch).width + tracking;
+        }
+      }
+      if (sub) {
+        ctx.font = '400 22px "Cascadia Mono", Consolas, monospace';
+        ctx.fillStyle = 'rgba(220,235,237,.5)';
+        ctx.textAlign = 'center';
+        ctx.fillText(sub, w / 2, h * 0.73);
+      }
+    });
+  }
+
+  const pcbTexture = canvasTexture(1024, 700, (ctx, w, h) => {
+    ctx.fillStyle = '#081411'; ctx.fillRect(0, 0, w, h);
+    const grad = ctx.createRadialGradient(w * .46, h * .42, 20, w * .46, h * .42, w * .7);
+    grad.addColorStop(0, 'rgba(21,63,53,.55)');
+    grad.addColorStop(1, 'rgba(3,8,7,.2)');
+    ctx.fillStyle = grad; ctx.fillRect(0, 0, w, h);
+
+    ctx.strokeStyle = 'rgba(191,156,74,.16)'; ctx.lineWidth = 1.4;
+    const rnd = mulberry32(33);
+    for (let i = 0; i < 86; i++) {
+      let x = Math.floor(rnd() * w / 8) * 8;
+      let y = Math.floor(rnd() * h / 8) * 8;
+      ctx.beginPath(); ctx.moveTo(x, y);
+      for (let s = 0; s < 5; s++) {
+        if (rnd() > .5) x += (rnd() > .5 ? 1 : -1) * (12 + Math.floor(rnd() * 70));
+        else y += (rnd() > .5 ? 1 : -1) * (12 + Math.floor(rnd() * 60));
+        ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(95,239,210,.22)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 42; i++) {
+      const x = rnd() * w, y = rnd() * h;
+      ctx.beginPath(); ctx.arc(x, y, 1 + rnd() * 2.2, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(164,194,186,.3)';
+    ctx.font = '12px "Cascadia Mono", Consolas, monospace';
+    ['AP2-MB-A1', 'AI CORE', 'PRO IMAGING', 'U1', 'U2', 'SD', 'PWR'].forEach((t, i) => {
+      ctx.fillText(t, 44 + (i % 3) * 310, 56 + Math.floor(i / 3) * 260);
+    });
+    ctx.strokeStyle = 'rgba(217,179,95,.4)';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 14; i++) {
+      const y = 26 + i * 9;
+      ctx.strokeRect(30, y, 22, 3);
+      ctx.strokeRect(w - 52, y, 22, 3);
+    }
+    const fade = ctx.createLinearGradient(0, 0, w, 0);
+    fade.addColorStop(0, 'rgba(0,0,0,.2)');
+    fade.addColorStop(.5, 'rgba(255,255,255,0)');
+    fade.addColorStop(1, 'rgba(0,0,0,.28)');
+    ctx.fillStyle = fade; ctx.fillRect(0, 0, w, h);
+  });
+
+  const sensorTexture = canvasTexture(512, 540, (ctx, w, h) => {
+    ctx.fillStyle = '#0c241c'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#08130f';
+    roundedRect(ctx, 22, 22, w - 44, h - 44, 18); ctx.fill();
+    ctx.strokeStyle = 'rgba(216,174,82,.55)'; ctx.lineWidth = 3;
+    roundedRect(ctx, 28, 28, w - 56, h - 56, 16); ctx.stroke();
+    ctx.strokeStyle = 'rgba(216,174,82,.2)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 20; i++) {
+      ctx.beginPath(); ctx.moveTo(34, 38 + i * 23); ctx.lineTo(54, 38 + i * 23); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w - 54, 38 + i * 23); ctx.lineTo(w - 34, 38 + i * 23); ctx.stroke();
+    }
+    const sg = ctx.createLinearGradient(0, 110, 0, h - 110);
+    sg.addColorStop(0, '#152d35'); sg.addColorStop(.5, '#08151a'); sg.addColorStop(1, '#1b2632');
+    ctx.fillStyle = sg;
+    ctx.fillRect(104, 118, w - 208, h - 236);
+    ctx.strokeStyle = 'rgba(116,240,255,.22)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 9; i++) {
+      ctx.beginPath(); ctx.moveTo(104, 130 + i * 32); ctx.lineTo(w - 104, 130 + i * 32); ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(224,244,245,.72)';
+    ctx.font = '600 25px "Bahnschrift", sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('1/1.3" CMOS', w / 2, 88);
+    ctx.font = '12px "Cascadia Mono", Consolas, monospace';
+    ctx.fillStyle = 'rgba(149,216,211,.5)';
+    ctx.fillText('50 MP / AP2-IMG', w / 2, h - 76);
+  });
+
+  const screenTexture = canvasTexture(1024, 768, (ctx, w, h) => {
+    const sky = ctx.createLinearGradient(0, 0, 0, h * .7);
+    sky.addColorStop(0, '#0b2f46');
+    sky.addColorStop(.45, '#257a91');
+    sky.addColorStop(.76, '#e59455');
+    sky.addColorStop(1, '#f3b166');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, w, h);
+
+    const sun = ctx.createRadialGradient(w * .68, h * .57, 4, w * .68, h * .57, 84);
+    sun.addColorStop(0, 'rgba(255,250,221,1)');
+    sun.addColorStop(.2, 'rgba(255,220,146,.9)');
+    sun.addColorStop(1, 'rgba(255,180,100,0)');
+    ctx.fillStyle = sun; ctx.beginPath(); ctx.arc(w * .68, h * .57, 88, 0, Math.PI * 2); ctx.fill();
+
+    ctx.fillStyle = '#0a2632';
+    ctx.beginPath(); ctx.moveTo(0, h * .64); ctx.lineTo(120, h * .52); ctx.lineTo(238, h * .59);
+    ctx.lineTo(370, h * .46); ctx.lineTo(530, h * .59); ctx.lineTo(660, h * .5); ctx.lineTo(810, h * .62);
+    ctx.lineTo(w, h * .51); ctx.lineTo(w, h * .72); ctx.lineTo(0, h * .72); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#113543';
+    ctx.beginPath(); ctx.moveTo(0, h * .69); ctx.lineTo(170, h * .61); ctx.lineTo(360, h * .68);
+    ctx.lineTo(560, h * .57); ctx.lineTo(760, h * .66); ctx.lineTo(w, h * .58); ctx.lineTo(w, h * .75);
+    ctx.lineTo(0, h * .75); ctx.closePath(); ctx.fill();
+
+    const water = ctx.createLinearGradient(0, h * .7, 0, h);
+    water.addColorStop(0, 'rgba(28,86,102,.95)'); water.addColorStop(1, 'rgba(4,23,31,1)');
+    ctx.fillStyle = water; ctx.fillRect(0, h * .7, w, h * .3);
+    ctx.strokeStyle = 'rgba(243,177,102,.35)'; ctx.lineWidth = 2;
+    for (let i = 0; i < 18; i++) {
+      const y = h * .72 + i * 14;
+      ctx.beginPath(); ctx.moveTo(w * .36 + Math.sin(i) * 34, y); ctx.lineTo(w * .75 + Math.cos(i) * 36, y); ctx.stroke();
+    }
+
+    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 1;
+    for (let i = 1; i < 3; i++) { ctx.beginPath(); ctx.moveTo(w * i / 3, 0); ctx.lineTo(w * i / 3, h); ctx.stroke(); }
+    for (let i = 1; i < 3; i++) { ctx.beginPath(); ctx.moveTo(0, h * i / 3); ctx.lineTo(w, h * i / 3); ctx.stroke(); }
+
+    ctx.strokeStyle = 'rgba(255,255,255,.62)'; ctx.lineWidth = 2;
+    const pad = 30, br = 30;
+    [[pad,pad,1,1],[w-pad,pad,-1,1],[pad,h-pad,1,-1],[w-pad,h-pad,-1,-1]].forEach(([x,y,sx,sy]) => {
+      ctx.beginPath(); ctx.moveTo(x + sx * br, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy * br); ctx.stroke();
+    });
+
+    ctx.fillStyle = 'rgba(3,9,11,.55)';
+    roundedRect(ctx, 28, 24, 252, 42, 4); ctx.fill();
+    ctx.fillStyle = '#ff5c24'; ctx.beginPath(); ctx.arc(50, 45, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#edf8f8'; ctx.font = '600 22px "Bahnschrift", sans-serif';
+    ctx.fillText('REC', 68, 53);
+    ctx.font = '15px "Cascadia Mono", Consolas, monospace';
+    ctx.fillStyle = 'rgba(255,255,255,.62)'; ctx.fillText('00:12:48', 644, 53);
+
+    ctx.fillStyle = 'rgba(3,9,11,.45)';
+    roundedRect(ctx, 28, h - 77, 212, 38, 4); ctx.fill();
+    ctx.fillStyle = '#f0fbfb'; ctx.font = '700 25px "Bahnschrift", sans-serif';
+    ctx.fillText('8K', 42, h - 49);
+    ctx.font = '14px "Cascadia Mono", Consolas, monospace';
+    ctx.fillStyle = 'rgba(235,250,250,.72)'; ctx.fillText('30  ·  LEICA COLOR', 96, h - 49);
+    ctx.fillStyle = 'rgba(235,250,250,.52)';
+    ctx.fillText('F2.6  1/800  ISO100', 694, h - 49);
+
+    const vignette = ctx.createRadialGradient(w / 2, h / 2, w * .3, w / 2, h / 2, w * .72);
+    vignette.addColorStop(0, 'rgba(0,0,0,0)'); vignette.addColorStop(1, 'rgba(0,0,0,.44)');
+    ctx.fillStyle = vignette; ctx.fillRect(0, 0, w, h);
+  });
+
+  const lensGlassTexture = canvasTexture(1024, 1024, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    const c = w / 2, r = w * .5;
+    const base = ctx.createRadialGradient(c * 1.05, c * .9, r * .05, c, c, r);
+    base.addColorStop(0, 'rgba(4,12,18,0)');
+    base.addColorStop(.55, 'rgba(8,23,34,.12)');
+    base.addColorStop(.82, 'rgba(12,48,68,.38)');
+    base.addColorStop(.95, 'rgba(8,30,42,.8)');
+    base.addColorStop(1, 'rgba(2,9,13,.95)');
+    ctx.fillStyle = base; ctx.beginPath(); ctx.arc(c, c, r, 0, Math.PI * 2); ctx.fill();
+
+    const glow1 = ctx.createRadialGradient(w * .33, h * .3, 2, w * .33, h * .3, w * .32);
+    glow1.addColorStop(0, 'rgba(145,247,255,.8)');
+    glow1.addColorStop(.25, 'rgba(58,179,209,.32)');
+    glow1.addColorStop(1, 'rgba(15,74,95,0)');
+    ctx.fillStyle = glow1; ctx.fillRect(0, 0, w, h);
+
+    const glow2 = ctx.createRadialGradient(w * .67, h * .73, 4, w * .67, h * .73, w * .26);
+    glow2.addColorStop(0, 'rgba(255,129,72,.5)');
+    glow2.addColorStop(.35, 'rgba(138,48,84,.18)');
+    glow2.addColorStop(1, 'rgba(90,28,70,0)');
+    ctx.fillStyle = glow2; ctx.fillRect(0, 0, w, h);
+
+    ctx.lineWidth = 4;
+    for (let i = 0; i < 3; i++) {
+      ctx.strokeStyle = i === 0 ? 'rgba(111,218,255,.23)' : (i === 1 ? 'rgba(151,97,219,.15)' : 'rgba(255,131,75,.13)');
+      ctx.beginPath(); ctx.arc(c, c, r * (.43 + i * .17), Math.PI * .95, Math.PI * 1.68); ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(190,247,255,.2)'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(c, c, r * .86, 0, Math.PI * 2); ctx.stroke();
+  });
+
+  const lensRingTexture = canvasTexture(1024, 1024, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    const cx = w / 2, cy = h / 2;
+    ctx.strokeStyle = 'rgba(206,225,226,.32)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, 448, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, 376, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = 'rgba(206,225,226,.18)';
+    for (let i = 0; i < 72; i++) {
+      const a = i / 72 * Math.PI * 2;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * 450, cy + Math.sin(a) * 450);
+      ctx.lineTo(cx + Math.cos(a) * (i % 6 === 0 ? 430 : 440), cy + Math.sin(a) * (i % 6 === 0 ? 430 : 440));
+      ctx.stroke();
+    }
+    ctx.fillStyle = 'rgba(222,238,239,.72)';
+    ctx.font = '600 23px "Bahnschrift", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const text = 'LEICA SUMMARIT  1:2.6 / 13  ASPH.';
+    const radius = 406;
+    const step = 0.047;
+    let angle = -Math.PI * .72;
+    for (const ch of text) {
+      ctx.save();
+      ctx.translate(cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius);
+      ctx.rotate(angle + Math.PI / 2);
+      ctx.fillText(ch, 0, 0);
+      ctx.restore();
+      angle += step;
+    }
+    ctx.fillStyle = 'rgba(219,235,236,.4)';
+    ctx.font = '15px "Cascadia Mono", Consolas, monospace';
+    ctx.fillText('157°   ·   OPTICAL STACK', cx, cy + 395);
+  });
+
+  const batteryTexture = canvasTexture(1024, 420, (ctx, w, h) => {
+    ctx.fillStyle = '#0b0d0e'; ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#ff5c24'; ctx.fillRect(0, 0, w, 11);
+    ctx.fillStyle = 'rgba(255,255,255,.92)';
+    ctx.font = '600 37px "Bahnschrift", sans-serif';
+    ctx.fillText('insta360', 54, 78);
+    ctx.font = '500 54px "Bahnschrift", sans-serif';
+    ctx.fillStyle = '#f4f7f7';
+    ctx.fillText('1800mAh', 54, 156);
+    ctx.font = '22px "Cascadia Mono", Consolas, monospace';
+    ctx.fillStyle = 'rgba(255,92,36,.95)';
+    ctx.fillText('6.84Wh  ·  Li-ion  ·  3.8V', 58, 196);
+    ctx.fillStyle = 'rgba(235,244,245,.4)';
+    ctx.font = '16px "Cascadia Mono", Consolas, monospace';
+    ctx.fillText('ACE PRO 2  /  BATTERY PACK  /  AP2-B01', 56, 238);
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(54, 276); ctx.lineTo(w - 54, 276); ctx.stroke();
+    ctx.fillStyle = 'rgba(235,244,245,.32)';
+    ctx.font = '13px "Cascadia Mono", Consolas, monospace';
+    ctx.fillText('DO NOT PUNCTURE · DO NOT EXPOSE TO FIRE', 56, 307);
+    for (let i = 0; i < 4; i++) {
+      ctx.fillStyle = 'rgba(255,92,36,.22)';
+      ctx.fillRect(760, 74 + i * 32, 202, 3);
+    }
+    ctx.strokeStyle = 'rgba(216,174,82,.75)'; ctx.lineWidth = 7;
+    for (let i = 0; i < 3; i++) ctx.strokeRect(876 + i * 38, 274, 25, 62);
+  });
+
+  const stageTexture = canvasTexture(1024, 1024, (ctx, w, h) => {
+    ctx.clearRect(0, 0, w, h);
+    const c = w / 2;
+    ctx.translate(c, c);
+    ctx.strokeStyle = 'rgba(112,222,240,.19)'; ctx.lineWidth = 1.4;
+    [290, 348, 430].forEach((r, i) => {
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash(i === 1 ? [2, 8] : i === 2 ? [1, 12] : []);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    ctx.strokeStyle = 'rgba(112,222,240,.26)';
+    for (let i = 0; i < 96; i++) {
+      const a = i / 96 * Math.PI * 2;
+      const long = i % 8 === 0;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(a) * (long ? 452 : 460), Math.sin(a) * (long ? 452 : 460));
+      ctx.lineTo(Math.cos(a) * 472, Math.sin(a) * 472);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(255,92,36,.22)'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 4; i++) {
+      const a0 = i * Math.PI / 2 + .18;
+      ctx.beginPath(); ctx.arc(0, 0, 492, a0, a0 + .38); ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(112,222,240,.12)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-500, 0); ctx.lineTo(500, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, -500); ctx.lineTo(0, 500); ctx.stroke();
+    ctx.fillStyle = 'rgba(122,224,241,.42)';
+    ctx.font = '15px "Cascadia Mono", Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('AP2 / OPTICAL BENCH', 0, -338);
+    ctx.font = '11px "Cascadia Mono", Consolas, monospace';
+    ctx.fillText('X', 520, 4); ctx.fillText('Y', 4, -520);
+  });
+
+  const glowTexture = canvasTexture(256, 256, (ctx, w, h) => {
+    const g = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2);
+    g.addColorStop(0, 'rgba(255,116,62,.8)');
+    g.addColorStop(.22, 'rgba(255,92,36,.35)');
+    g.addColorStop(.62, 'rgba(255,92,36,.07)');
+    g.addColorStop(1, 'rgba(255,92,36,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
+  });
+
+  /* =========================================================
+     05 / STAGE
+     ========================================================= */
+  const stage = new THREE.Group();
+  scene.add(stage);
+
+  const floorDisc = new THREE.Mesh(
+    new THREE.CircleGeometry(4.4, 96),
+    new THREE.MeshStandardMaterial({
+      color:0x05090b, roughness:0.34, metalness:0.5,
+      transparent:true, opacity:0.86
+    })
+  );
+  floorDisc.rotation.x = -Math.PI / 2;
+  floorDisc.position.y = -2.82;
+  floorDisc.receiveShadow = true;
+  stage.add(floorDisc);
+
+  const stageDecal = new THREE.Mesh(
+    new THREE.CircleGeometry(4.35, 96),
+    new THREE.MeshBasicMaterial({
+      map:stageTexture, transparent:true, opacity:0.46,
+      depthWrite:false, blending:THREE.AdditiveBlending
+    })
+  );
+  stageDecal.rotation.x = -Math.PI / 2;
+  stageDecal.position.y = -2.805;
+  stage.add(stageDecal);
+
+  const grid = new THREE.GridHelper(15, 30, 0x1b373c, 0x112428);
+  grid.position.y = -2.812;
+  grid.material.transparent = true;
+  grid.material.opacity = 0.18;
+  grid.material.depthWrite = false;
+  stage.add(grid);
+
+  const dustCount = 280;
+  const dustPositions = new Float32Array(dustCount * 3);
+  const dustSeed = mulberry32(17);
+  for (let i = 0; i < dustCount; i++) {
+    const a = dustSeed() * Math.PI * 2;
+    const r = 1.5 + dustSeed() * 5.4;
+    dustPositions[i * 3] = Math.cos(a) * r;
+    dustPositions[i * 3 + 1] = -2.4 + dustSeed() * 6.4;
+    dustPositions[i * 3 + 2] = Math.sin(a) * r;
+  }
+  const dustGeo = new THREE.BufferGeometry();
+  dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+  const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+    color:0x6bd8e8, size:0.017, transparent:true, opacity:0.48,
+    depthWrite:false, blending:THREE.AdditiveBlending, sizeAttenuation:true
+  }));
+  scene.add(dust);
+
+  /* =========================================================
+     06 / MODEL BUILDERS
+     ========================================================= */
+  const pickables = [];
+  const partObjects = [];
+  const partById = new Map();
+
+  function addMesh(parent, geo, material, pos = [0,0,0], rot = [0,0,0], cast = true){
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.position.set(pos[0], pos[1], pos[2]);
+    mesh.rotation.set(rot[0], rot[1], rot[2]);
+    mesh.castShadow = cast;
+    mesh.receiveShadow = cast;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  function addDecal(parent, map, width, height, pos, rot = [0,0,0], options = {}){
+    const material = new THREE.MeshBasicMaterial({
+      map,
+      transparent:true,
+      opacity:options.opacity ?? 1,
+      depthWrite:false,
+      side:THREE.DoubleSide,
+      blending:options.blending ?? THREE.NormalBlending,
+      toneMapped:options.toneMapped ?? true
+    });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), material);
+    mesh.position.set(pos[0], pos[1], pos[2]);
+    mesh.rotation.set(rot[0], rot[1], rot[2]);
+    mesh.renderOrder = options.renderOrder ?? 2;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  function addPickProxy(parent, w, h, d, pos = [0,0,0]){
+    const material = new THREE.MeshBasicMaterial({
+      transparent:true, opacity:0, depthWrite:false, colorWrite:false
+    });
+    const proxy = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), material);
+    proxy.position.set(pos[0], pos[1], pos[2]);
+    proxy.castShadow = false;
+    proxy.receiveShadow = false;
+    parent.add(proxy);
+    return proxy;
+  }
+
+  function bodyMaterial(){
+    return new THREE.MeshStandardMaterial({
+      color:0x171b1e, metalness:0.5, roughness:0.72,
+      roughnessMap:gripTexture, envMapIntensity:1.2
+    });
+  }
+  function softBlack(){
+    return new THREE.MeshStandardMaterial({
+      color:0x080b0c, metalness:0.18, roughness:0.82, envMapIntensity:0.7
+    });
+  }
+  function metalDark(){
+    return new THREE.MeshStandardMaterial({
+      color:0x2e3437, metalness:0.98, roughness:0.24, envMapIntensity:1.5
+    });
+  }
+  function metalMid(){
+    return new THREE.MeshStandardMaterial({
+      color:0x5a6265, metalness:0.96, roughness:0.32, envMapIntensity:1.4
+    });
+  }
+  function rubberMaterial(){
+    return new THREE.MeshStandardMaterial({
+      color:0x0b0e0f, metalness:0.04, roughness:0.94,
+      bumpMap:grooveTexture, bumpScale:0.008, envMapIntensity:0.45
+    });
+  }
+  function pcbMaterial(map = null, emissiveMap = null){
+    return new THREE.MeshStandardMaterial({
+      color:0x17312b, metalness:0.35, roughness:0.7,
+      map, emissiveMap, emissive:emissiveMap ? 0x153a35 : 0x000000,
+      emissiveIntensity:emissiveMap ? 0.42 : 0,
+      envMapIntensity:0.8
+    });
+  }
+
+  function registerPart(id, group, home, explodeOffset, options = {}){
+    const data = PART_MAP.get(id);
+    group.position.copy(home);
+    group.rotation.set(0, 0, 0);
+    scene.add(group);
+
+    const anchor = new THREE.Object3D();
+    const anchorParent = options.anchorParent || group;
+    anchor.position.copy(options.anchor || new THREE.Vector3(0, 0, 0));
+    anchorParent.add(anchor);
+
+    group.traverse(o => {
+      if (o.isMesh) {
+        o.userData.partId = id;
+        pickables.push(o);
+      }
+    });
+
+    const materials = new Set();
+    group.traverse(o => {
+      if (!o.isMesh) return;
+      const list = Array.isArray(o.material) ? o.material : [o.material];
+      list.forEach(mat => {
+        if (!mat) return;
+        materials.add(mat);
+        if (mat.emissive && !mat.userData.baseEmissive) {
+          mat.userData.baseEmissive = mat.emissive.clone();
+          mat.userData.baseEmissiveIntensity = mat.emissiveIntensity ?? 1;
+        }
+      });
+    });
+
+    const part = {
+      id, data, group, anchor,
+      home: home.clone(),
+      explodeOffset: explodeOffset.clone(),
+      explodeRot: options.explodeRot ? options.explodeRot.clone() : new THREE.Vector3(),
+      materials: Array.from(materials),
+      pivot: options.pivot || null,
+      display: options.display || null,
+      extraUpdate: options.extraUpdate || null
+    };
+
+    partObjects.push(part);
+    partById.set(id, part);
+    return part;
+  }
+
+  /* ---------- 01 BODY ---------- */
+  function buildBody(){
+    const group = new THREE.Group();
+
+    const shell = addMesh(
+      group,
+      new RoundedBoxGeometry(1.92, 1.44, 0.84, 8, 0.135),
+      bodyMaterial()
+    );
+
+    const edges = new THREE.LineSegments(
+      new THREE.EdgesGeometry(shell.geometry, 28),
+      new THREE.LineBasicMaterial({ color:0x738388, transparent:true, opacity:0.11 })
+    );
+    group.add(edges);
+
+    const frontPlate = addMesh(
+      group,
+      new RoundedBoxGeometry(1.77, 1.29, 0.075, 7, 0.1),
+      new THREE.MeshStandardMaterial({
+        color:0x0d1113, metalness:0.72, roughness:0.34, envMapIntensity:1.3
+      }),
+      [0, 0, 0.406]
+    );
+    frontPlate.castShadow = false;
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(1.83, 1.35, 0.052, 8, 0.125),
+      metalDark(),
+      [0, 0, 0.39]
+    );
+
+    [-1, 1].forEach(side => {
+      addMesh(
+        group,
+        new RoundedBoxGeometry(0.04, 1.02, 0.62, 4, 0.045),
+        rubberMaterial(),
+        [side * 0.958, -0.06, 0.03]
+      );
+      addMesh(
+        group,
+        new RoundedBoxGeometry(0.012, 0.86, 0.016, 2, 0.004),
+        new THREE.MeshStandardMaterial({
+          color:0xff5420, emissive:0xff3a0a, emissiveIntensity:0.55,
+          metalness:0.4, roughness:0.4
+        }),
+        [side * 0.962, -0.14, 0.37]
+      );
+    });
+
+    const lensSocket = addMesh(
+      group,
+      new THREE.CylinderGeometry(0.492, 0.492, 0.055, 96, 1, true),
+      new THREE.MeshStandardMaterial({
+        color:0x070a0b, metalness:0.55, roughness:0.58, side:THREE.DoubleSide
+      }),
+      [0, 0.035, 0.44],
+      [Math.PI / 2, 0, 0]
+    );
+    lensSocket.castShadow = false;
+
+    const socketRing = addMesh(
+      group,
+      new THREE.TorusGeometry(0.485, 0.018, 12, 96),
+      metalMid(),
+      [0, 0.035, 0.468]
+    );
+    socketRing.castShadow = false;
+
+    for (let i = 0; i < 4; i++) {
+      const a = Math.PI * 0.25 + i * Math.PI * 0.5;
+      addMesh(
+        group,
+        new THREE.CylinderGeometry(0.022, 0.022, 0.012, 16),
+        metalMid(),
+        [Math.cos(a) * 0.715, 0.035 + Math.sin(a) * 0.56, 0.449],
+        [Math.PI / 2, 0, 0]
+      );
+    }
+
+    for (let i = 0; i < 6; i++) {
+      addMesh(
+        group,
+        new THREE.CylinderGeometry(0.0085, 0.0085, 0.012, 10),
+        softBlack(),
+        [-0.715 + i * 0.034, 0.6, 0.449],
+        [Math.PI / 2, 0, 0],
+        false
+      );
+    }
+
+    const instaLogo = makeTextTexture('insta360', {
+      width:512, height:96, color:'#d8e4e5',
+      font:'500 56px "Bahnschrift", sans-serif', tracking:2.2, align:'left'
+    });
+    addDecal(group, instaLogo, 0.43, 0.081, [-0.68, 0.54, 0.45], [0,0,0], { opacity:0.44 });
+
+    const aceLogo = makeTextTexture('ACE PRO 2', {
+      width:512, height:96, color:'#dbe6e7',
+      font:'600 46px "Bahnschrift", sans-serif', tracking:3.2
+    });
+    addDecal(group, aceLogo, 0.33, 0.062, [0.54, -0.535, 0.45], [0,0,0], { opacity:0.4 });
+
+    const leica = makeTextTexture('LEICA', {
+      width:512, height:128, color:'#e7eff0',
+      font:'600 70px "Bahnschrift", sans-serif', tracking:11
+    });
+    addDecal(group, leica, 0.24, 0.06, [0, -0.535, 0.45], [0,0,0], { opacity:0.62 });
+
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.019, 0.019, 0.012, 16),
+      new THREE.MeshStandardMaterial({
+        color:0xff5c24, emissive:0xff5c24, emissiveIntensity:1.8,
+        metalness:0.2, roughness:0.3
+      }),
+      [0.79, 0.5, 0.45],
+      [Math.PI / 2, 0, 0],
+      false
+    );
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.036, 0.35, 0.42, 3, 0.014),
+      softBlack(),
+      [0.973, -0.13, 0.12]
+    );
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.012, 0.06, 0.15, 3, 0.008),
+      metalMid(),
+      [0.993, -0.13, 0.12]
+    );
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.008, 0.16, 0.018, 2, 0.003),
+      new THREE.MeshStandardMaterial({
+        color:0xff5420, emissive:0xff3a0a, emissiveIntensity:0.45,
+        roughness:0.42, metalness:0.3
+      }),
+      [0.996, -0.31, 0.28]
+    );
+
+    addPickProxy(group, 1.95, 1.47, 0.88);
+
+    return registerPart('body', group, new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0));
+  }
+
+  /* ---------- 02 LENS ---------- */
+  function buildLens(){
+    const group = new THREE.Group();
+
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.477, 0.492, 0.18, 96, 1, true),
+      new THREE.MeshStandardMaterial({
+        color:0x1a1d1f, metalness:0.92, roughness:0.3,
+        envMapIntensity:1.4, side:THREE.DoubleSide
+      }),
+      [0, 0, 0],
+      [Math.PI / 2, 0, 0]
+    );
+
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.405, 0.462, 0.055, 96, 1, true),
+      softBlack(),
+      [0, 0, 0.09],
+      [Math.PI / 2, 0, 0]
+    );
+
+    addMesh(
+      group,
+      new THREE.TorusGeometry(0.463, 0.042, 20, 96),
+      metalMid(),
+      [0, 0, 0.085]
+    );
+
+    addMesh(
+      group,
+      new THREE.TorusGeometry(0.414, 0.014, 12, 96),
+      metalDark(),
+      [0, 0, 0.107]
+    );
+
+    addMesh(
+      group,
+      new THREE.TorusGeometry(0.397, 0.0055, 8, 96),
+      new THREE.MeshStandardMaterial({
+        color:0x56ecff, emissive:0x2bdfff, emissiveIntensity:1.25,
+        metalness:0.5, roughness:0.25
+      }),
+      [0, 0, 0.132],
+      [0,0,0],
+      false
+    );
+
+    const glassCap = addMesh(
+      group,
+      new THREE.SphereGeometry(0.354, 64, 32, 0, Math.PI * 2, 0, Math.PI / 2),
+      new THREE.MeshPhysicalMaterial({
+        color:0x050d14, metalness:0.24, roughness:0.025,
+        clearcoat:1, clearcoatRoughness:0.015, envMapIntensity:2.8,
+        side:THREE.DoubleSide
+      }),
+      [0, 0, 0.096],
+      [Math.PI / 2, 0, 0]
+    );
+    glassCap.scale.set(1, 1, 0.64);
+    glassCap.castShadow = false;
+
+    addDecal(
+      group, lensGlassTexture, 0.70, 0.70, [0, 0, 0.338],
+      [0, 0, 0], { opacity:0.9, blending:THREE.AdditiveBlending, toneMapped:false }
+    );
+
+    addDecal(
+      group, lensRingTexture, 0.92, 0.92, [0, 0, 0.332],
+      [0, 0, 0], { opacity:0.9, toneMapped:false }
+    );
+
+    const screwAngles = [Math.PI * 0.18, Math.PI * 0.83, Math.PI * 1.43];
+    screwAngles.forEach(a => {
+      addMesh(
+        group,
+        new THREE.CylinderGeometry(0.018, 0.018, 0.014, 12),
+        metalMid(),
+        [Math.cos(a) * 0.42, Math.sin(a) * 0.42, 0.133],
+        [Math.PI / 2, 0, 0],
+        false
+      );
+    });
+
+    addPickProxy(group, 0.98, 0.98, 0.4, [0, 0, 0.06]);
+
+    return registerPart(
+      'lens', group,
+      new THREE.Vector3(0, 0.035, 0.44),
+      new THREE.Vector3(0, 0.06, 1.56),
+      { anchor:new THREE.Vector3(0, 0, 0.16) }
+    );
+  }
+
+  /* ---------- 03 SENSOR ---------- */
+  function buildSensor(){
+    const group = new THREE.Group();
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.84, 0.7, 0.038, 4, 0.025),
+      pcbMaterial(),
+      [0, 0, 0]
+    );
+
+    const gold = new THREE.MeshStandardMaterial({
+      color:0xd6a64f, metalness:1, roughness:0.24, envMapIntensity:1.7
+    });
+
+    [[0, 0.34, 0.66, 0.022], [0, -0.34, 0.66, 0.022], [-0.36, 0, 0.022, 0.55], [0.36, 0, 0.022, 0.55]]
+      .forEach(([x, y, w, h]) => {
+        addMesh(group, new THREE.BoxGeometry(w, h, 0.012), gold, [x, y, 0.031], [0,0,0], false);
+      });
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.44, 0.48, 0.06, 3, 0.012),
+      new THREE.MeshStandardMaterial({
+        color:0x080e11, metalness:0.55, roughness:0.46, envMapIntensity:1.1
+      }),
+      [0, 0, 0.04]
+    );
+
+    addDecal(group, sensorTexture, 0.39, 0.43, [0, 0, 0.075], [0,0,0], { toneMapped:false });
+
+    for (let i = 0; i < 10; i++) {
+      addMesh(
+        group,
+        new THREE.BoxGeometry(0.016, 0.034, 0.008),
+        gold,
+        [-0.20 + i * 0.045, -0.258, 0.04],
+        [0,0,0],
+        false
+      );
+      addMesh(
+        group,
+        new THREE.BoxGeometry(0.016, 0.034, 0.008),
+        gold,
+        [-0.20 + i * 0.045, 0.258, 0.04],
+        [0,0,0],
+        false
+      );
+    }
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.47, 0.19, 0.026, 3, 0.012),
+      new THREE.MeshStandardMaterial({
+        color:0xb85f2f, metalness:0.25, roughness:0.66, envMapIntensity:0.8
+      }),
+      [-0.06, -0.45, -0.015],
+      [0, 0, 0.08]
+    );
+    for (let i = 0; i < 6; i++) {
+      addMesh(
+        group,
+        new THREE.BoxGeometry(0.012, 0.16, 0.006),
+        gold,
+        [-0.25 + i * 0.078, -0.45, 0.005],
+        [0,0,0.08],
+        false
+      );
+    }
+
+    addPickProxy(group, 0.92, 0.82, 0.18, [0, -0.02, 0.02]);
+
+    return registerPart(
+      'sensor', group,
+      new THREE.Vector3(0, 0.06, 0.16),
+      new THREE.Vector3(0, 0.55, 1.12),
+      { anchor:new THREE.Vector3(0, 0, 0.06) }
+    );
+  }
+
+  /* ---------- 04 MAINBOARD ---------- */
+  function buildBoard(){
+    const group = new THREE.Group();
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(1.64, 1.14, 0.04, 4, 0.025),
+      pcbMaterial(pcbTexture, pcbTexture),
+      [0, 0, 0]
+    );
+
+    addDecal(group, pcbTexture, 1.57, 1.07, [0, 0, 0.022], [0,0,0], { opacity:0.96, toneMapped:false });
+
+    const chipBlack = new THREE.MeshStandardMaterial({
+      color:0x080b0d, metalness:0.62, roughness:0.42, envMapIntensity:1.2
+    });
+    const chipBlack2 = chipBlack.clone();
+
+    addMesh(group, new RoundedBoxGeometry(0.35, 0.35, 0.075, 3, 0.01), chipBlack, [-0.43, 0.22, 0.054]);
+    addMesh(group, new RoundedBoxGeometry(0.28, 0.28, 0.065, 3, 0.01), chipBlack2, [-0.02, 0.2, 0.048]);
+
+    const aiLabel = makeTextTexture('AI 5nm', {
+      width:256, height:128, color:'#cfe4e4',
+      font:'600 36px "Bahnschrift", sans-serif'
+    });
+    addDecal(group, aiLabel, 0.25, 0.125, [-0.43, 0.22, 0.095], [0,0,0], { opacity:0.65 });
+
+    const proLabel = makeTextTexture('PRO ISP', {
+      width:256, height:128, color:'#a6c8c6',
+      font:'500 28px "Cascadia Mono", monospace'
+    });
+    addDecal(group, proLabel, 0.21, 0.105, [-0.02, 0.2, 0.084], [0,0,0], { opacity:0.55 });
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.25, 0.19, 0.045, 3, 0.008),
+      chipBlack,
+      [0.37, 0.16, 0.04]
+    );
+
+    for (let i = 0; i < 7; i++) {
+      const x = -0.65 + (i % 4) * 0.19;
+      const y = -0.24 - Math.floor(i / 4) * 0.17;
+      addMesh(
+        group,
+        new THREE.CylinderGeometry(0.034, 0.034, 0.065, 10),
+        new THREE.MeshStandardMaterial({
+          color:0x67736f, metalness:0.8, roughness:0.38
+        }),
+        [x, y, 0.045],
+        [Math.PI / 2, 0, 0]
+      );
+    }
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.28, 0.075, 0.03, 3, 0.008),
+      metalMid(),
+      [-0.57, -0.45, 0.042]
+    );
+    addMesh(
+      group,
+      new THREE.BoxGeometry(0.22, 0.032, 0.012),
+      new THREE.MeshStandardMaterial({ color:0x17191a, metalness:0.9, roughness:0.35 }),
+      [-0.57, -0.45, 0.064],
+      [0,0,0],
+      false
+    );
+    addDecal(
+      group,
+      makeTextTexture('microSD', {
+        width:256, height:64, color:'#95a5a4',
+        font:'400 23px "Cascadia Mono", monospace'
+      }),
+      0.21, 0.052, [-0.57, -0.39, 0.036], [0,0,0], { opacity:0.55 }
+    );
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.12, 0.18, 0.26, 3, 0.03),
+      metalMid(),
+      [0.73, -0.18, 0.02]
+    );
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.09, 0.055, 0.18, 2, 0.02),
+      softBlack(),
+      [0.74, -0.18, 0.02]
+    );
+
+    const connector = addMesh(
+      group,
+      new THREE.BoxGeometry(0.22, 0.1, 0.012),
+      new THREE.MeshStandardMaterial({ color:0xd9a74d, metalness:1, roughness:0.28 }),
+      [0.2, -0.47, 0.032],
+      [0,0,0],
+      false
+    );
+    connector.rotation.z = 0.02;
+
+    for (let i = 0; i < 8; i++) {
+      addMesh(
+        group,
+        new THREE.BoxGeometry(0.022, 0.06, 0.008),
+        new THREE.MeshStandardMaterial({
+          color:0xd9a74d, metalness:1, roughness:0.24
+        }),
+        [-0.7 + i * 0.045, 0.5, 0.03],
+        [0,0,0],
+        false
+      );
+    }
+
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.012, 0.012, 0.008, 10),
+      new THREE.MeshStandardMaterial({
+        color:0x52eaff, emissive:0x3de3ff, emissiveIntensity:1.8,
+        metalness:0.25, roughness:0.28
+      }),
+      [-0.62, 0.37, 0.032],
+      [Math.PI / 2, 0, 0],
+      false
+    );
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.012, 0.012, 0.008, 10),
+      new THREE.MeshStandardMaterial({
+        color:0xff5c24, emissive:0xff3c0c, emissiveIntensity:1.5,
+        metalness:0.25, roughness:0.28
+      }),
+      [0.6, 0.37, 0.032],
+      [Math.PI / 2, 0, 0],
+      false
+    );
+
+    addPickProxy(group, 1.6, 1.14, 0.29);
+
+    return registerPart(
+      'board', group,
+      new THREE.Vector3(0, 0.02, -0.15),
+      new THREE.Vector3(-1.98, 0.19, 0.12),
+      { explodeRot:new THREE.Vector3(0, 0.18, 0) }
+    );
+  }
+
+  /* ---------- 05 THERMAL ---------- */
+  function buildThermal(){
+    const group = new THREE.Group();
+
+    const copper = new THREE.MeshStandardMaterial({
+      color:0xb76632, metalness:1, roughness:0.31, envMapIntensity:1.7
+    });
+    const copperDark = new THREE.MeshStandardMaterial({
+      color:0x7d3e21, metalness:0.95, roughness:0.42, envMapIntensity:1.2
+    });
+    const graphite = new THREE.MeshStandardMaterial({
+      color:0x14191b, metalness:0.4, roughness:0.78, envMapIntensity:0.65
+    });
+
+    addMesh(group, new RoundedBoxGeometry(1.24, 0.045, 0.74, 4, 0.04), graphite, [0, -0.25, 0]);
+    addMesh(group, new RoundedBoxGeometry(1.2, 0.035, 0.7, 4, 0.03), copperDark, [0, -0.205, 0]);
+
+    for (let i = 0; i < 7; i++) {
+      const x = -0.45 + i * 0.15;
+      addMesh(
+        group,
+        new RoundedBoxGeometry(0.025, 0.42 - Math.abs(x) * 0.08, 0.64, 3, 0.008),
+        copper,
+        [x, 0.01, 0]
+      );
+    }
+
+    addMesh(
+      group,
+      new THREE.BoxGeometry(1.12, 0.025, 0.055),
+      copperDark,
+      [0, 0.2, 0.29]
+    );
+
+    const pipePoints = [
+      new THREE.Vector3(-0.56, -0.19, 0.34),
+      new THREE.Vector3(-0.51, -0.01, 0.34),
+      new THREE.Vector3(0.0, 0.12, 0.34),
+      new THREE.Vector3(0.51, -0.01, 0.34),
+      new THREE.Vector3(0.56, -0.19, 0.34)
+    ];
+    const pipeCurve = new THREE.CatmullRomCurve3(pipePoints);
+    const pipe = new THREE.Mesh(
+      new THREE.TubeGeometry(pipeCurve, 48, 0.018, 10, false),
+      copper
+    );
+    pipe.castShadow = true;
+    group.add(pipe);
+
+    addMesh(
+      group,
+      new THREE.BoxGeometry(0.62, 0.008, 0.012),
+      new THREE.MeshStandardMaterial({
+        color:0x60efff, emissive:0x35e2ff, emissiveIntensity:1.1,
+        metalness:0.4, roughness:0.3
+      }),
+      [0, -0.176, 0.37],
+      [0,0,0],
+      false
+    );
+
+    addPickProxy(group, 1.33, 0.68, 0.82);
+
+    return registerPart(
+      'thermal', group,
+      new THREE.Vector3(0, 0.2, -0.22),
+      new THREE.Vector3(1.98, 0.22, -0.22),
+      { explodeRot:new THREE.Vector3(0, -0.18, 0) }
+    );
+  }
+
+  /* ---------- 06 BATTERY ---------- */
+  function buildBattery(){
+    const group = new THREE.Group();
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(1.45, 0.55, 0.66, 5, 0.09),
+      new THREE.MeshStandardMaterial({
+        color:0x101315, metalness:0.36, roughness:0.62, envMapIntensity:0.9
+      })
+    );
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(1.32, 0.43, 0.012, 4, 0.035),
+      new THREE.MeshStandardMaterial({ color:0x0a0c0d, metalness:0.2, roughness:0.9 }),
+      [0, -0.015, 0.336]
+    );
+    addDecal(group, batteryTexture, 1.24, 0.51, [0, -0.015, 0.344], [0,0,0], { toneMapped:false });
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.12, 0.36, 0.48, 3, 0.04),
+      new THREE.MeshStandardMaterial({ color:0x1c1f21, metalness:0.4, roughness:0.55 }),
+      [0.735, -0.02, 0]
+    );
+
+    const gold = new THREE.MeshStandardMaterial({
+      color:0xd7a94d, metalness:1, roughness:0.25, envMapIntensity:1.6
+    });
+    [-0.14, 0, 0.14].forEach(y => {
+      addMesh(group, new RoundedBoxGeometry(0.018, 0.055, 0.2, 2, 0.008), gold, [0.787, y, 0.05]);
+    });
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(0.28, 0.07, 0.4, 3, 0.025),
+      new THREE.MeshStandardMaterial({
+        color:0xff5c24, emissive:0xff4b10, emissiveIntensity:0.28,
+        metalness:0.35, roughness:0.48
+      }),
+      [-0.56, 0.315, 0.02]
+    );
+
+    addMesh(
+      group,
+      new THREE.BoxGeometry(1.03, 0.018, 0.009),
+      new THREE.MeshStandardMaterial({
+        color:0xff5c24, emissive:0xff4b10, emissiveIntensity:0.5,
+        metalness:0.3, roughness:0.4
+      }),
+      [0, 0.274, 0.333],
+      [0,0,0],
+      false
+    );
+
+    addPickProxy(group, 1.5, 0.65, 0.74);
+
+    return registerPart(
+      'battery', group,
+      new THREE.Vector3(0, -0.13, 0),
+      new THREE.Vector3(0, -1.55, 0.1),
+      { explodeRot:new THREE.Vector3(0, 0, -0.025) }
+    );
+  }
+
+  /* ---------- 07 SCREEN ---------- */
+  function buildScreen(){
+    const group = new THREE.Group();
+    const pivot = new THREE.Group();
+    group.add(pivot);
+    const panel = new THREE.Group();
+    panel.position.set(0, -0.585, -0.005);
+    pivot.add(panel);
+
+    addMesh(
+      panel,
+      new RoundedBoxGeometry(1.66, 1.18, 0.078, 5, 0.055),
+      new THREE.MeshStandardMaterial({
+        color:0x15191b, metalness:0.55, roughness:0.48, envMapIntensity:1.1
+      })
+    );
+
+    addMesh(
+      panel,
+      new RoundedBoxGeometry(1.59, 1.11, 0.018, 4, 0.035),
+      blackScreenMat(),
+      [0, 0, -0.045]
+    );
+
+    const display = new THREE.Mesh(
+      new THREE.PlaneGeometry(1.51, 1.035),
+      new THREE.MeshBasicMaterial({ map:screenTexture, toneMapped:true })
+    );
+    display.position.set(0, 0, -0.056);
+    display.rotation.set(0, Math.PI, 0);
+    display.castShadow = false;
+    panel.add(display);
+
+    const screenGlass = addMesh(
+      panel,
+      new THREE.PlaneGeometry(1.52, 1.04),
+      new THREE.MeshPhysicalMaterial({
+        color:0x0c1a1e, metalness:0.35, roughness:0.06,
+        transparent:true, opacity:0.14, envMapIntensity:1.6,
+        depthWrite:false, side:THREE.DoubleSide
+      }),
+      [0, 0, -0.058],
+      [0, Math.PI, 0],
+      false
+    );
+    screenGlass.renderOrder = 3;
+
+    addMesh(
+      panel,
+      new RoundedBoxGeometry(1.67, 1.19, 0.012, 4, 0.06),
+      new THREE.MeshStandardMaterial({
+        color:0x050809, metalness:0.55, roughness:0.35
+      }),
+      [0, 0, -0.048]
+    ).castShadow = false;
+
+    for (let i = 0; i < 3; i++) {
+      addMesh(
+        panel,
+        new THREE.BoxGeometry(1.25, 0.007, 0.006),
+        new THREE.MeshStandardMaterial({
+          color:0x242b2d, metalness:0.7, roughness:0.35
+        }),
+        [0, -0.42 + i * 0.14, 0.043],
+        [0,0,0],
+        false
+      );
+    }
+
+    const hinge = addMesh(
+      group,
+      new THREE.CylinderGeometry(0.046, 0.046, 1.57, 20),
+      metalMid(),
+      [0, 0.022, -0.026],
+      [0, 0, Math.PI / 2]
+    );
+    hinge.castShadow = true;
+
+    [-0.84, 0.84].forEach(x => {
+      addMesh(
+        group,
+        new THREE.CylinderGeometry(0.06, 0.06, 0.07, 16),
+        metalDark(),
+        [x, 0.022, -0.026],
+        [0, 0, Math.PI / 2]
+      );
+    });
+
+    addMesh(
+      group,
+      new THREE.BoxGeometry(1.12, 0.022, 0.012),
+      new THREE.MeshStandardMaterial({
+        color:0xff5c24, emissive:0xff3d0c, emissiveIntensity:0.44,
+        metalness:0.4, roughness:0.4
+      }),
+      [0, 0.06, 0.03],
+      [0,0,0],
+      false
+    );
+
+    addPickProxy(panel, 1.62, 1.18, 0.17, [0, 0, -0.01]);
+
+    return registerPart(
+      'screen', group,
+      new THREE.Vector3(0, 0.62, -0.45),
+      new THREE.Vector3(0, 0.7, 0.22),
+      {
+        anchor:new THREE.Vector3(0, 0, -0.075),
+        anchorParent:panel,
+        pivot,
+        display
+      }
+    );
+  }
+  let _blackScreenMat;
+  function blackScreenMat(){
+    if (!_blackScreenMat) {
+      _blackScreenMat = new THREE.MeshStandardMaterial({
+        color:0x040708, metalness:0.48, roughness:0.34, envMapIntensity:1.0
+      });
+    }
+    return _blackScreenMat;
+  }
+
+  /* ---------- 08 TOP CONTROLS ---------- */
+  function buildControls(){
+    const group = new THREE.Group();
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(1.04, 0.065, 0.5, 4, 0.045),
+      new THREE.MeshStandardMaterial({
+        color:0x121719, metalness:0.7, roughness:0.38, envMapIntensity:1.2
+      })
+    );
+
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.15, 0.16, 0.052, 32),
+      metalDark(),
+      [0.24, 0.052, 0.07]
+    );
+    addMesh(
+      group,
+      new THREE.TorusGeometry(0.125, 0.022, 12, 48),
+      new THREE.MeshStandardMaterial({
+        color:0xff5c24, emissive:0xff4e18, emissiveIntensity:0.32,
+        metalness:0.35, roughness:0.36
+      }),
+      [0.24, 0.082, 0.07],
+      [Math.PI / 2, 0, 0]
+    );
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.104, 0.108, 0.072, 32),
+      new THREE.MeshStandardMaterial({
+        color:0x3c1210, metalness:0.36, roughness:0.3
+      }),
+      [0.24, 0.082, 0.07]
+    );
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.096, 0.096, 0.01, 32),
+      new THREE.MeshStandardMaterial({
+        color:0xff5c24, emissive:0xff5c24, emissiveIntensity:0.8,
+        metalness:0.22, roughness:0.32
+      }),
+      [0.24, 0.121, 0.07]
+    );
+
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.075, 0.078, 0.032, 24),
+      metalDark(),
+      [0.58, 0.043, -0.09]
+    );
+    addMesh(
+      group,
+      new THREE.TorusGeometry(0.064, 0.009, 8, 32),
+      metalMid(),
+      [0.58, 0.06, -0.09],
+      [Math.PI / 2, 0, 0]
+    );
+
+    for (let i = 0; i < 12; i++) {
+      addMesh(
+        group,
+        new THREE.CylinderGeometry(0.0085, 0.0085, 0.006, 10),
+        softBlack(),
+        [-0.36 + (i % 4) * 0.035, 0.035, -0.05 + Math.floor(i / 4) * 0.055],
+        [0,0,0],
+        false
+      );
+    }
+
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.014, 0.014, 0.008, 12),
+      new THREE.MeshStandardMaterial({
+        color:0x55ebff, emissive:0x33e2ff, emissiveIntensity:1.4,
+        metalness:0.3, roughness:0.3
+      }),
+      [-0.44, 0.034, 0.17],
+      [0,0,0],
+      false
+    );
+
+    const qLabel = makeTextTexture('Q', {
+      width:128, height:128, color:'#aab9ba',
+      font:'500 70px "Bahnschrift", sans-serif'
+    });
+    addDecal(group, qLabel, 0.06, 0.06, [0.58, 0.064, -0.09], [-Math.PI / 2, 0, 0], { opacity:0.55 });
+
+    addPickProxy(group, 1.16, 0.24, 0.62, [0.05, 0.03, 0]);
+
+    return registerPart(
+      'controls', group,
+      new THREE.Vector3(0.4, 0.745, 0.02),
+      new THREE.Vector3(1.0, 1.02, -0.18),
+      { anchor:new THREE.Vector3(0.18, 0.06, 0.03) }
+    );
+  }
+
+  /* ---------- 09 MAGNETIC MOUNT ---------- */
+  function buildMount(){
+    const group = new THREE.Group();
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(1.23, 0.105, 0.8, 4, 0.055),
+      new THREE.MeshStandardMaterial({
+        color:0x181c1e, metalness:0.82, roughness:0.34, envMapIntensity:1.3
+      }),
+      [0, -0.04, 0]
+    );
+
+    addMesh(
+      group,
+      new RoundedBoxGeometry(1.16, 0.018, 0.73, 3, 0.02),
+      new THREE.MeshStandardMaterial({
+        color:0xff5c24, emissive:0xff4310, emissiveIntensity:0.2,
+        metalness:0.4, roughness:0.45
+      }),
+      [0, -0.1, 0]
+    );
+
+    const magnetMat = new THREE.MeshStandardMaterial({
+      color:0x8a4a2e, metalness:0.95, roughness:0.32, envMapIntensity:1.3
+    });
+    const ring = addMesh(
+      group,
+      new THREE.TorusGeometry(0.24, 0.033, 12, 48),
+      magnetMat,
+      [0, -0.105, 0],
+      [Math.PI / 2, 0, 0]
+    );
+    ring.castShadow = false;
+
+    [[-0.34, 0.19], [0.34, 0.19], [-0.34, -0.19], [0.34, -0.19]].forEach(([x, z]) => {
+      addMesh(
+        group,
+        new THREE.CylinderGeometry(0.065, 0.065, 0.018, 20),
+        magnetMat,
+        [x, -0.105, z]
+      );
+    });
+
+    addMesh(
+      group,
+      new THREE.CylinderGeometry(0.115, 0.115, 0.02, 32),
+      softBlack(),
+      [0, -0.11, 0]
+    );
+    addMesh(
+      group,
+      new THREE.TorusGeometry(0.09, 0.012, 8, 32),
+      metalMid(),
+      [0, -0.124, 0],
+      [Math.PI / 2, 0, 0]
+    );
+
+    for (let i = 0; i < 4; i++) {
+      addMesh(
+        group,
+        new THREE.CylinderGeometry(0.015, 0.015, 0.01, 10),
+        metalMid(),
+        [-0.47 + (i % 2) * 0.94, -0.092, -0.29 + Math.floor(i / 2) * 0.58],
+        [0,0,0],
+        false
+      );
+    }
+
+    addPickProxy(group, 1.3, 0.32, 0.88, [0, -0.04, 0]);
+
+    return registerPart(
+      'mount', group,
+      new THREE.Vector3(0, -0.744, -0.015),
+      new THREE.Vector3(0, -1.5, -0.26),
+      { explodeRot:new THREE.Vector3(-1.18, 0, 0), anchor:new THREE.Vector3(0, -0.08, 0) }
+    );
+  }
+
+  buildBody();
+  buildLens();
+  buildSensor();
+  buildBoard();
+  buildThermal();
+  buildBattery();
+  buildScreen();
+  buildControls();
+  buildMount();
+
+  /* =========================================================
+     07 / SELECTION RETICLE
+     ========================================================= */
+  const reticle = new THREE.Group();
+  reticle.visible = false;
+  scene.add(reticle);
+  const reticleMaterials = [];
+  for (let i = 0; i < 4; i++) {
+    const arcMat = new THREE.MeshBasicMaterial({
+      color:0xff5c24, transparent:true, opacity:0.75,
+      depthTest:false, depthWrite:false,
+      blending:THREE.AdditiveBlending, side:THREE.DoubleSide
+    });
+    reticleMaterials.push(arcMat);
+    const arc = new THREE.Mesh(
+      new THREE.RingGeometry(0.72, 0.735, 18, 1, i * Math.PI / 2 + 0.16, Math.PI / 2 - 0.32),
+      arcMat
+    );
+    arc.renderOrder = 30;
+    reticle.add(arc);
+  }
+  const reticleInnerMat = new THREE.MeshBasicMaterial({
+    color:0xff5c24, transparent:true, opacity:0.23,
+    depthTest:false, depthWrite:false,
+    blending:THREE.AdditiveBlending, side:THREE.DoubleSide
+  });
+  const reticleInner = new THREE.Mesh(
+    new THREE.RingGeometry(0.86, 0.865, 72),
+    reticleInnerMat
+  );
+  reticleInner.renderOrder = 30;
+  reticle.add(reticleInner);
+  const reticleDotMat = new THREE.MeshBasicMaterial({
+    color:0xffb08a, transparent:true, opacity:0.9,
+    depthTest:false, depthWrite:false,
+    blending:THREE.AdditiveBlending
+  });
+  const reticleDot = new THREE.Mesh(new THREE.CircleGeometry(0.018, 12), reticleDotMat);
+  reticleDot.renderOrder = 31;
+  reticle.add(reticleDot);
+
+  /* =========================================================
+     08 / POST PROCESSING
+     ========================================================= */
+  const composer = new EffectComposer(renderer);
+  composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  composer.setSize(window.innerWidth, window.innerHeight);
+  composer.addPass(new RenderPass(scene, camera));
+
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.58, 0.72, 0.74
+  );
+  composer.addPass(bloomPass);
+  composer.addPass(new OutputPass());
+
+  /* =========================================================
+     09 / UI REFERENCES
+     ========================================================= */
+  const el = {
+    list:document.getElementById('partsList'),
+    detailPanel:document.getElementById('detailPanel'),
+    detailScroll:document.getElementById('detailScroll'),
+    detailCap:document.getElementById('detailCap'),
+    explodeBtn:document.getElementById('explodeBtn'),
+    explodeLabel:document.getElementById('explodeLabel'),
+    explodeKicker:document.getElementById('explodeKicker'),
+    resetBtn:document.getElementById('resetBtn'),
+    autoBtn:document.getElementById('autoBtn'),
+    labelsBtn:document.getElementById('labelsBtn'),
+    modeLabel:document.getElementById('modeLabel'),
+    modeScale:document.getElementById('modeScale'),
+    calloutLayer:document.getElementById('calloutLayer'),
+    leaderSvg:document.getElementById('leaderSvg'),
+    hoverTip:document.getElementById('hoverTip'),
+    boot:document.getElementById('boot'),
+    bootStatus:document.getElementById('bootStatus')
+  };
+  const htIndex = el.hoverTip.querySelector('.ht-index');
+  const htName = el.hoverTip.querySelector('b');
+  const htSub = el.hoverTip.querySelector('small');
+
+  partObjects.forEach(part => {
+    part.progress = 0;
+    part.flip = 0;
+    part.glow = 0;
+  });
+
+  /* =========================================================
+     10 / PART LIST
+     ========================================================= */
+  PARTS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'part-item';
+    btn.dataset.part = p.id;
+    btn.innerHTML =
+      '<span class="part-idx">' + p.index + '</span>' +
+      '<span class="part-copy"><span class="part-name">' + p.name + '</span>' +
+      '<span class="part-en">' + p.en + '</span></span>' +
+      '<span class="part-state"></span>';
+    btn.addEventListener('click', () => selectPart(p.id));
+    btn.addEventListener('mouseenter', e => setHover(p.id, e));
+    btn.addEventListener('mouseleave', () => setHover(null));
+    el.list.appendChild(btn);
+  });
+
+  /* =========================================================
+     11 / DETAIL PANEL
+     ========================================================= */
+  function renderOverview(){
+    el.detailCap.textContent = 'OVR';
+    el.detailScroll.innerHTML =
+      '<div class="overview-wrap">' +
+        '<div class="overview-kicker">TEARDOWN INDEX / ACE PRO 2</div>' +
+        '<div class="overview-title">结构拆解<br><em>九个模块</em></div>' +
+        '<p class="overview-copy">Ace Pro 2 把旗舰影像能力压缩进 71.9 × 52.2 × 38 mm 的机身。从徕卡镜组到双芯主板，每一层结构都为 8K 管线与持续散热重新排布。</p>' +
+        '<div class="stat-grid">' +
+          '<div class="stat-cell"><b>8K<span>30</span></b><small>MAX VIDEO / FPS</small></div>' +
+          '<div class="stat-cell"><b>50<span>MP</span></b><small>PHOTO / PIXEL</small></div>' +
+          '<div class="stat-cell"><b>157<span>&deg;</span></b><small>FIELD OF VIEW</small></div>' +
+          '<div class="stat-cell"><b>1800<span>mAh</span></b><small>ENDURANCE CELL</small></div>' +
+        '</div>' +
+        '<div class="mini-specs">' +
+          '<div class="mini-row"><span>整机尺寸</span><b>71.9 × 52.2 × 38 mm</b></div>' +
+          '<div class="mini-row"><span>整机重量</span><b>182 g</b></div>' +
+          '<div class="mini-row"><span>裸机防水</span><b>12 m</b></div>' +
+          '<div class="mini-row"><span>快充规格</span><b>30 W / 18 min to 80%</b></div>' +
+        '</div>' +
+        '<button type="button" class="overview-cta">' +
+          '<svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M7 5l5 5 5-5M7 19l5-5 5 5"/></svg>' +
+          '<span>展开全部结构层级，查看九个模块</span><kbd>E</kbd>' +
+        '</button>' +
+      '</div>';
+
+    const cta = el.detailScroll.querySelector('.overview-cta');
+    if (cta) cta.addEventListener('click', () => setExploded(true));
+    el.detailScroll.scrollTop = 0;
+  }
+
+  function renderDetail(id){
+    const p = PART_MAP.get(id);
+    if (!p) { renderOverview(); return; }
+    el.detailCap.textContent = p.index;
+    el.detailScroll.innerHTML =
+      '<div class="detail-wrap">' +
+        '<div class="detail-head">' +
+          '<span class="label">MODULE / ' + p.index + ' &middot; ' + p.cat + '</span>' +
+          '<button type="button" class="detail-close" aria-label="返回总览">' +
+            '<svg viewBox="0 0 12 12"><path d="M2 2l8 8M10 2l-8 8"/></svg>' +
+          '</button>' +
+        '</div>' +
+        '<div class="detail-number">' + p.index + '</div>' +
+        '<div class="detail-title">' + p.name + '</div>' +
+        '<div class="detail-en">' + p.en + '</div>' +
+        '<div class="detail-tags">' + p.tags.map(t => '<span>' + t + '</span>').join('') + '</div>' +
+        '<p class="detail-desc">' + p.desc + '</p>' +
+        '<div class="spec-table">' +
+          p.specs.map(s => '<div class="spec-row"><span>' + s[0] + '</span><b>' + s[1] + '</b></div>').join('') +
+        '</div>' +
+        '<div class="detail-footer"><span>REF &middot; AP2-' + p.index + '</span>' +
+          '<span class="signal"><i></i>MODULE LOCKED</span></div>' +
+      '</div>';
+
+    const close = el.detailScroll.querySelector('.detail-close');
+    if (close) close.addEventListener('click', () => selectPart(null));
+    el.detailScroll.scrollTop = 0;
+  }
+
+  /* =========================================================
+     12 / CALLOUTS & LEADERS
+     ========================================================= */
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const callouts = PARTS.map((p, i) => {
+    const box = document.createElement('div');
+    box.className = 'callout';
+    box.style.transitionDelay = (i * 45) + 'ms';
+    box.innerHTML =
+      '<span class="c-idx">' + p.index + '</span>' +
+      '<span class="c-txt"><b>' + p.name + '</b><small>' + p.callout + '</small></span>' +
+      '<span class="c-corner"></span>';
+    box.addEventListener('click', () => selectPart(p.id));
+    box.addEventListener('mouseenter', e => setHover(p.id, e));
+    box.addEventListener('mouseleave', () => setHover(null));
+    el.calloutLayer.appendChild(box);
+
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('class', 'leader-g');
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('class', 'leader');
+    const dot = document.createElementNS(SVG_NS, 'circle');
+    dot.setAttribute('class', 'leader-dot');
+    dot.setAttribute('r', '2.2');
+    g.appendChild(path);
+    g.appendChild(dot);
+    el.leaderSvg.appendChild(g);
+
+    return { part:partById.get(p.id), data:p, box, g, path, dot, x:0, y:0, ax:0, ay:0, onScreen:false };
+  });
+
+  const calloutVec = new THREE.Vector3();
+
+  function updateCallouts(){
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const enabled = state.labels && state.ready && state.exploded && W > 1180;
+
+    el.calloutLayer.style.display = enabled ? '' : 'none';
+    el.leaderSvg.style.display = enabled ? '' : 'none';
+    if (!enabled) return;
+
+    const lanes = { left:[], right:[] };
+    callouts.forEach(c => {
+      c.part.anchor.getWorldPosition(calloutVec);
+      const sp = calloutVec.clone().project(camera);
+      c.ax = (sp.x * 0.5 + 0.5) * W;
+      c.ay = (-sp.y * 0.5 + 0.5) * H;
+      c.onScreen = sp.z > -1 && sp.z < 1 &&
+        c.ax > -160 && c.ax < W + 160 &&
+        c.ay > 40 && c.ay < H - 40;
+      lanes[c.data.side].push(c);
+    });
+
+    ['left', 'right'].forEach(side => {
+      const lane = lanes[side].filter(c => c.onScreen).sort((a, b) => a.ay - b.ay);
+      const isLeft = side === 'left';
+      const laneX = isLeft ? 306 : Math.max(640, W - 552);
+
+      lane.forEach(c => {
+        c.x = laneX;
+        c.y = THREE.MathUtils.clamp(c.ay - 17, 104, H - 148);
+      });
+
+      const gap = 42;
+      for (let i = 1; i < lane.length; i++) {
+        lane[i].y = Math.max(lane[i].y, lane[i - 1].y + gap);
+      }
+      if (lane.length && lane[lane.length - 1].y > H - 148) {
+        lane[lane.length - 1].y = H - 148;
+        for (let i = lane.length - 2; i >= 0; i--) {
+          lane[i].y = Math.min(lane[i].y, lane[i + 1].y - gap);
+        }
+      }
+
+      lane.forEach(c => {
+        c.box.style.left = c.x.toFixed(1) + 'px';
+        c.box.style.top = c.y.toFixed(1) + 'px';
+        c.box.classList.add('visible');
+        c.g.classList.add('visible');
+
+        const ex = isLeft ? c.x + 174 : c.x;
+        const ey = c.y + 15;
+        const dir = c.ax > ex ? 1 : -1;
+        const mid = ex + dir * 14;
+        c.path.setAttribute(
+          'd',
+          'M' + ex.toFixed(1) + ' ' + ey.toFixed(1) +
+          'L' + mid.toFixed(1) + ' ' + ey.toFixed(1) +
+          'L' + mid.toFixed(1) + ' ' + c.ay.toFixed(1) +
+          'L' + c.ax.toFixed(1) + ' ' + c.ay.toFixed(1)
+        );
+        c.dot.setAttribute('cx', c.ax.toFixed(1));
+        c.dot.setAttribute('cy', c.ay.toFixed(1));
+      });
+    });
+
+    callouts.forEach(c => {
+      if (!c.onScreen) {
+        c.box.classList.remove('visible');
+        c.g.classList.remove('visible');
+      }
+    });
+  }
+
+  /* =========================================================
+     13 / SELECTION & EXPLODE STATE
+     ========================================================= */
+  function positionTip(clientX, clientY){
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const tw = el.hoverTip.offsetWidth || 150;
+    const th = el.hoverTip.offsetHeight || 46;
+    const x = Math.min(clientX + 18, W - tw - 14);
+    const y = Math.min(clientY + 16, H - th - 14);
+    el.hoverTip.style.left = '0px';
+    el.hoverTip.style.top = '0px';
+    el.hoverTip.style.transform = 'translate(' + x + 'px,' + y + 'px)';
+  }
+
+  function setHover(id, evt){
+    if (state.hovered === id) {
+      if (id && evt) positionTip(evt.clientX, evt.clientY);
+      return;
+    }
+    state.hovered = id;
+    document.querySelectorAll('.part-item').forEach(node => {
+      node.classList.toggle('hover', node.dataset.part === id);
+    });
+    callouts.forEach(c => c.box.classList.toggle('hover', c.part.id === id));
+
+    if (id && state.ready) {
+      const p = PART_MAP.get(id);
+      htIndex.textContent = p.index;
+      htName.textContent = p.name;
+      htSub.textContent = p.en;
+      el.hoverTip.classList.add('visible');
+      canvas.style.cursor = 'pointer';
+      if (evt) positionTip(evt.clientX, evt.clientY);
+    } else {
+      el.hoverTip.classList.remove('visible');
+      canvas.style.cursor = '';
+    }
+  }
+
+  function syncSelection(){
+    const sel = state.selected;
+    document.querySelectorAll('.part-item').forEach(node => {
+      node.classList.toggle('active', node.dataset.part === sel);
+    });
+    callouts.forEach(c => {
+      c.box.classList.toggle('active', c.part.id === sel);
+      c.g.classList.toggle('active', c.part.id === sel);
+      c.path.classList.toggle('active', c.part.id === sel);
+      c.dot.classList.toggle('active', c.part.id === sel);
+    });
+
+    if (sel) {
+      el.modeScale.textContent = PART_MAP.get(sel).index + ' / 09';
+      el.modeLabel.textContent = 'EXPLODED';
+      document.body.classList.add('has-detail');
+    } else {
+      el.modeScale.textContent = state.exploded ? '09 / 09' : '01 / 09';
+      document.body.classList.remove('has-detail');
+    }
+  }
+
+  function selectPart(id){
+    if (!id) {
+      const was = state.selected;
+      state.selected = null;
+      syncSelection();
+      renderOverview();
+      if (was) reticle.visible = false;
+      return;
+    }
+    if (state.selected === id) {
+      state.selected = null;
+      syncSelection();
+      renderOverview();
+      reticle.visible = false;
+      return;
+    }
+    if (!state.exploded) setExploded(true);
+    state.selected = id;
+    renderDetail(id);
+    syncSelection();
+  }
+
+  function setExploded(flag){
+    const next = !!flag;
+    if (state.exploded === next) {
+      if (!next) selectPart(null);
+      return;
+    }
+    state.exploded = next;
+    el.explodeBtn.classList.toggle('active', next);
+    el.explodeBtn.setAttribute('aria-pressed', String(next));
+    el.explodeLabel.textContent = next ? '合拢整机' : '拆解整机';
+    el.explodeKicker.textContent = next ? 'ASSEMBLE SEQUENCE' : 'EXPLODE SEQUENCE';
+    el.modeLabel.textContent = next ? 'EXPLODED' : 'ASSEMBLED';
+
+    if (!next) {
+      state.selected = null;
+      renderOverview();
+    }
+    syncSelection();
+    flyTo(
+      next ? EXPLODE_POS : HOME_POS,
+      next ? EXPLODE_TARGET : HOME_TARGET,
+      1.35
+    );
+  }
+
+  function resetAll(){
+    state.selected = null;
+    state.exploded = false;
+    el.explodeBtn.classList.remove('active');
+    el.explodeBtn.setAttribute('aria-pressed', 'false');
+    el.explodeLabel.textContent = '拆解整机';
+    el.explodeKicker.textContent = 'EXPLODE SEQUENCE';
+    el.modeLabel.textContent = 'ASSEMBLED';
+    renderOverview();
+    syncSelection();
+    reticle.visible = false;
+    flyTo(HOME_POS, HOME_TARGET, 1.25);
+  }
+
+  function toggleLabels(){
+    state.labels = !state.labels;
+    el.labelsBtn.classList.toggle('active', state.labels);
+    el.labelsBtn.setAttribute('aria-pressed', String(state.labels));
+  }
+
+  function toggleAuto(){
+    state.autoRotate = !state.autoRotate;
+    controls.autoRotate = state.autoRotate;
+    el.autoBtn.classList.toggle('active', state.autoRotate);
+    el.autoBtn.setAttribute('aria-pressed', String(state.autoRotate));
+  }
+
+  el.explodeBtn.addEventListener('click', () => setExploded(!state.exploded));
+  el.resetBtn.addEventListener('click', resetAll);
+  el.autoBtn.addEventListener('click', toggleAuto);
+  el.labelsBtn.addEventListener('click', toggleLabels);
+
+  /* =========================================================
+     14 / CAMERA TWEEN
+     ========================================================= */
+  let camTween = null;
+  function flyTo(pos, target, duration = 1.2){
+    camTween = {
+      p0:camera.position.clone(), p1:pos.clone(),
+      t0:controls.target.clone(), t1:target.clone(),
+      time:0, dur:Math.max(0.2, duration)
+    };
+  }
+  controls.addEventListener('start', () => { camTween = null; });
+
+  /* =========================================================
+     15 / POINTER PICKING
+     ========================================================= */
+  const raycaster = new THREE.Raycaster();
+  raycaster.params.Line.threshold = 0.02;
+  const pointerNdc = new THREE.Vector2();
+  let downPoint = null;
+
+  function pickAt(clientX, clientY){
+    pointerNdc.set(
+      (clientX / window.innerWidth) * 2 - 1,
+      -(clientY / window.innerHeight) * 2 + 1
+    );
+    raycaster.setFromCamera(pointerNdc, camera);
+    const hits = raycaster.intersectObjects(pickables, false);
+    for (let i = 0; i < hits.length; i++) {
+      const id = hits[i].object.userData.partId;
+      if (id) return id;
+    }
+    return null;
+  }
+
+  canvas.addEventListener('pointermove', e => {
+    if (e.pointerType === 'touch') {
+      if (e.buttons === 0) setHover(null);
+      return;
+    }
+    const id = pickAt(e.clientX, e.clientY);
+    setHover(id);
+    if (id) positionTip(e.clientX, e.clientY);
+  });
+
+  canvas.addEventListener('pointerleave', () => setHover(null));
+
+  canvas.addEventListener('pointerdown', e => {
+    downPoint = { x:e.clientX, y:e.clientY };
+    canvas.classList.add('is-dragging');
+    setHover(null);
+  });
+
+  canvas.addEventListener('pointerup', e => {
+    canvas.classList.remove('is-dragging');
+    if (!downPoint) return;
+    const dx = e.clientX - downPoint.x;
+    const dy = e.clientY - downPoint.y;
+    downPoint = null;
+    if (Math.hypot(dx, dy) > 7) return;
+
+    const id = pickAt(e.clientX, e.clientY);
+    if (id) selectPart(id);
+    else if (state.selected) selectPart(null);
+  });
+
+  canvas.addEventListener('pointercancel', () => {
+    downPoint = null;
+    canvas.classList.remove('is-dragging');
+  });
+
+  window.addEventListener('keydown', e => {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const tag = (e.target && e.target.tagName) || '';
+    if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+    const key = e.key.toLowerCase();
+    if (key === 'e') { setExploded(!state.exploded); e.preventDefault(); }
+    else if (key === 'r') { resetAll(); e.preventDefault(); }
+    else if (key === 'l') { toggleLabels(); e.preventDefault(); }
+    else if (key === 'a') { toggleAuto(); e.preventDefault(); }
+    else if (e.key === 'Escape' && state.selected) { selectPart(null); }
+  });
+
+  /* =========================================================
+     16 / PER-FRAME UPDATES
+     ========================================================= */
+  const GLOW_COLOR = new THREE.Color(0xff7a3c);
+
+  function updateParts(dt, t){
+    const target = state.exploded ? 1 : 0;
+    partObjects.forEach(part => {
+      const ease = 1 - Math.exp(-4.6 * dt);
+      part.progress += (target - part.progress) * ease;
+
+      const k = part.progress;
+      part.group.position.copy(part.home).addScaledVector(part.explodeOffset, k);
+      part.group.rotation.set(
+        part.explodeRot.x * k,
+        part.explodeRot.y * k,
+        part.explodeRot.z * k
+      );
+
+      const flipTarget = (state.exploded || state.selected === 'screen') ? 1 : 0;
+      part.flip += (flipTarget - part.flip) * (1 - Math.exp(-4.2 * dt));
+      if (part.pivot) part.pivot.rotation.x = -Math.PI * 0.985 * part.flip;
+      if (part.display) part.display.rotation.z = Math.PI * part.flip;
+
+      const glowTarget = Math.min(
+        1,
+        (state.selected === part.id ? 1 : 0) + (state.hovered === part.id ? 0.55 : 0)
+      );
+      part.glow += (glowTarget - part.glow) * (1 - Math.exp(-11 * dt));
+      const g = part.glow;
+      part.materials.forEach(mat => {
+        if (!mat.userData.baseEmissive) return;
+        mat.emissive.copy(mat.userData.baseEmissive).lerp(GLOW_COLOR, g * 0.8);
+        mat.emissiveIntensity =
+          (mat.userData.baseEmissiveIntensity || 1) +
+          g * (0.34 + Math.sin(t * 3.2) * 0.06);
+      });
+    });
+  }
+
+  const reticleVec = new THREE.Vector3();
+
+  function updateFrame(dt){
+    const want = (isCompact() && state.selected) ? 0.72 : 0;
+    state.frameY += (want - state.frameY) * (1 - Math.exp(-6 * dt));
+    if (Math.abs(state.frameY - want) < 0.0005) state.frameY = want;
+    scene.position.y = state.frameY;
+  }
+
+  function updateReticle(t){
+    if (!state.selected) { reticle.visible = false; return; }
+    const part = partById.get(state.selected);
+    if (!part) { reticle.visible = false; return; }
+
+    part.anchor.getWorldPosition(reticleVec);
+    const dist = camera.position.distanceTo(reticleVec);
+    reticle.position.copy(reticleVec);
+    reticle.quaternion.copy(camera.quaternion);
+    reticle.rotateZ(t * 0.42);
+    reticle.scale.setScalar(THREE.MathUtils.clamp(dist * 0.128, 0.4, 1.2));
+    reticle.visible = true;
+
+    reticleMaterials.forEach((mat, i) => {
+      mat.opacity = 0.52 + Math.sin(t * 2.4 + i * 1.1) * 0.2;
+    });
+  }
+
+  function updateCameraTween(dt){
+    if (!camTween) return;
+    camTween.time += dt;
+    const k = Math.min(1, camTween.time / camTween.dur);
+    const e = k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
+    camera.position.lerpVectors(camTween.p0, camTween.p1, e);
+    controls.target.lerpVectors(camTween.t0, camTween.t1, e);
+    if (k >= 1) camTween = null;
+  }
+
+  /* =========================================================
+     17 / RESIZE & LOOP
+     ========================================================= */
+  function onResize(){
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(w, h);
+    composer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    composer.setSize(w, h);
+    bloomPass.setSize(w, h);
+    if (!isCompact() && !state.selected) document.body.classList.remove('has-detail');
+  }
+  window.addEventListener('resize', onResize);
+
+  const clock = new THREE.Clock();
+  let bootFrames = 0;
+
+  function animate(){
+    const dt = Math.min(clock.getDelta(), 0.1);
+    const t = clock.elapsedTime;
+
+    updateCameraTween(dt);
+    controls.update();
+    updateParts(dt, t);
+    updateFrame(dt);
+    updateReticle(t);
+    updateCallouts();
+
+    dust.rotation.y += dt * 0.018;
+
+    composer.render();
+
+    if (!state.ready) {
+      bootFrames++;
+      if (bootFrames > 1) {
+        state.ready = true;
+        window.__AP2_READY__ = true;
+        el.bootStatus.textContent = 'OPTICAL STACK ONLINE';
+        window.setTimeout(() => el.boot.classList.add('done'), 520);
+        window.setTimeout(() => {
+          el.boot.style.display = 'none';
+        }, 1500);
+      }
+    }
+  }
+
+  /* =========================================================
+     18 / BOOT
+     ========================================================= */
+  renderer.compile(scene, camera);
+  renderOverview();
+  syncSelection();
+  updateCallouts();
+  renderer.setAnimationLoop(animate);
+  </script>
+</body>
+</html>
